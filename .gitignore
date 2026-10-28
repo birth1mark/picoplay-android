@@ -1,0 +1,25 @@
+# Gradle & Android build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+android/app/.cxx/
+*.iml
+.idea/
+
+# Local configurations & secrets — NEVER commit
+local.properties
+*/local.properties
+keystore.properties
+*/keystore.properties
+*.jks
+*.keystore
+*.key
+
+# Bundled SDL2 source tree (downloaded automatically by CI)
+android/app/jni/SDL2/
+
+# Pre-packaged root copies of APK/AAB
+*.apk
+*.aab
+*.idsig
+.aider*

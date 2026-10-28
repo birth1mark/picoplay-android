@@ -1,0 +1,121 @@
+plugins {
+    id 'com.android.application'
+}
+
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+if (!keystorePropertiesFile.exists()) {
+    keystorePropertiesFile = file("keystore.properties")
+}
+
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { stream ->
+        keystoreProperties.load(stream)
+    }
+}
+
+def getKeystoreProp = { String propName, String envName ->
+    return keystoreProperties.getProperty(propName) ?: System.getenv(envName)
+}
+
+def releaseStoreFilePath = getKeystoreProp("storeFile", "PICOPLAY_KEYSTORE_FILE")
+def releaseStorePassword = getKeystoreProp("storePassword", "PICOPLAY_KEYSTORE_PASSWORD")
+def releaseKeyAlias = getKeystoreProp("keyAlias", "PICOPLAY_KEY_ALIAS")
+def releaseKeyPassword = getKeystoreProp("keyPassword", "PICOPLAY_KEY_PASSWORD")
+
+File resolvedStoreFile = null
+if (releaseStoreFilePath) {
+    def fApp = file(releaseStoreFilePath)
+    def fRoot = rootProject.file(releaseStoreFilePath)
+    if (fApp.exists()) {
+        resolvedStoreFile = fApp
+    } else if (fRoot.exists()) {
+        resolvedStoreFile = fRoot
+    }
+}
+
+boolean hasValidReleaseSigning = resolvedStoreFile != null && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
+
+android {
+    namespace 'com.birth1mark.picoplay'
+    compileSdk 35
+    ndkVersion '27.1.12297006'
+
+    defaultConfig {
+        applicationId "com.birth1mark.picoplay"
+        minSdk 24
+        targetSdk 35
+        versionCode 100
+        versionName "1.0.0"
+
+        ndk {
+            abiFilters 'arm64-v8a', 'x86_64'
+        }
+    }
+
+    signingConfigs {
+        release {
+            if (hasValidReleaseSigning) {
+                storeFile resolvedStoreFile
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+
+    flavorDimensions = ["edition"]
+    productFlavors {
+        full {
+            dimension "edition"
+            applicationIdSuffix ".full"
+            versionNameSuffix "-full"
+            externalNativeBuild {
+                cmake {
+                    arguments "-DANDROID_STL=c++_shared", "-DPICOPLAY_PLAYSTORE_EDITION=0"
+                }
+            }
+        }
+        playstore {
+            dimension "edition"
+            externalNativeBuild {
+                cmake {
+                    arguments "-DANDROID_STL=c++_shared", "-DPICOPLAY_PLAYSTORE_EDITION=1"
+                }
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            if (hasValidReleaseSigning) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
+        }
+        debug {
+            // Standard debug signing
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "jni/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging false
+        }
+    }
+}
