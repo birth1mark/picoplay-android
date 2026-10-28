@@ -156,6 +156,8 @@ InputState_t Host::scanInput() {
 
             case SDL_FINGERDOWN:
                 g_androidShowTouchControls = true;
+                s_joyHeldMask = 0;
+                currKHeld = 0;
                 break;
 
             case SDL_KEYDOWN:
@@ -187,7 +189,6 @@ InputState_t Host::scanInput() {
 
             case SDL_JOYDEVICEADDED:
                 SDL_JoystickOpen(event.jdevice.which);
-                g_androidShowTouchControls = false;
                 break;
 
             case SDL_JOYBUTTONDOWN:
@@ -212,15 +213,30 @@ InputState_t Host::scanInput() {
                 break;
 
             case SDL_JOYAXISMOTION:
-                // Only process primary analog stick axes (0 = X, 1 = Y) with generous deadzone (16000)
                 if (event.jaxis.axis == 0) {
-                    s_joyHeldMask &= ~(P8_KEY_LEFT | P8_KEY_RIGHT);
-                    if (event.jaxis.value < -16000) { g_androidShowTouchControls = false; s_joyHeldMask |= P8_KEY_LEFT; }
-                    else if (event.jaxis.value > 16000) { g_androidShowTouchControls = false; s_joyHeldMask |= P8_KEY_RIGHT; }
+                    if (event.jaxis.value < -20000) {
+                        g_androidShowTouchControls = false;
+                        s_joyHeldMask |= P8_KEY_LEFT;
+                        s_joyHeldMask &= ~P8_KEY_RIGHT;
+                    } else if (event.jaxis.value > 20000) {
+                        g_androidShowTouchControls = false;
+                        s_joyHeldMask |= P8_KEY_RIGHT;
+                        s_joyHeldMask &= ~P8_KEY_LEFT;
+                    } else if (abs(event.jaxis.value) < 14000) {
+                        s_joyHeldMask &= ~(P8_KEY_LEFT | P8_KEY_RIGHT);
+                    }
                 } else if (event.jaxis.axis == 1) {
-                    s_joyHeldMask &= ~(P8_KEY_UP | P8_KEY_DOWN);
-                    if (event.jaxis.value < -16000) { g_androidShowTouchControls = false; s_joyHeldMask |= P8_KEY_UP; }
-                    else if (event.jaxis.value > 16000) { g_androidShowTouchControls = false; s_joyHeldMask |= P8_KEY_DOWN; }
+                    if (event.jaxis.value < -20000) {
+                        g_androidShowTouchControls = false;
+                        s_joyHeldMask |= P8_KEY_UP;
+                        s_joyHeldMask &= ~P8_KEY_DOWN;
+                    } else if (event.jaxis.value > 20000) {
+                        g_androidShowTouchControls = false;
+                        s_joyHeldMask |= P8_KEY_DOWN;
+                        s_joyHeldMask &= ~P8_KEY_UP;
+                    } else if (abs(event.jaxis.value) < 14000) {
+                        s_joyHeldMask &= ~(P8_KEY_UP | P8_KEY_DOWN);
+                    }
                 }
                 break;
         }
@@ -331,7 +347,7 @@ InputState_t Host::scanInput() {
     s_prevScaleTap = scaleTapped;
 
     g_androidTouchHeldMask = touchMask;
-    uint8_t combinedHeld = currKHeld | s_joyHeldMask | g_androidTouchHeldMask;
+    uint8_t combinedHeld = g_androidShowTouchControls ? g_androidTouchHeldMask : (currKHeld | s_joyHeldMask);
     kDown |= (combinedHeld & ~s_prevCombinedHeld);
     s_prevCombinedHeld = combinedHeld;
 
