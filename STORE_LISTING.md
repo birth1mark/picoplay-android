@@ -19,7 +19,7 @@ This document contains all ready-to-paste fields, assets, and compliance questio
   KEY FEATURES:
   • Built-In Starter Arcade Library: Jump straight into pre-installed open-source 8-bit classics right out of the box.
   • Import Any .P8 or .P8.PNG Cartridge: Tap [+CART] or [OPEN] to load your own ".p8" source cartridges or ".p8.png" image cartridges directly from your device storage.
-  • Pocket Touch Gamepad: Responsive multi-touch D-Pad and O/X arcade buttons designed for both Portrait and Landscape play.
+  • Pocket Touch Gamepad: Responsive multi-touch Virtual Thumb Joystick and O/X arcade buttons designed for both Portrait and Landscape play.
   • Automatic Bluetooth & USB Controller Support: Connect any Xbox, PlayStation DualShock/DualSense, 8BitDo, or built-in handheld controller—the on-screen touch overlay hides automatically when a physical controller is pressed.
   • Authentic 60 FPS Native C++ Engine: Powered by SDL2 and OpenGL ES 2.0 with integer pixel-perfect scaling and 16KB memory page alignment for Android 15+.
   • 100% Offline & Private: No ads, no tracking, no analytics, and no internet connection required.
@@ -45,7 +45,7 @@ This document contains all ready-to-paste fields, assets, and compliance questio
   FUNCIONALIDADES PRINCIPAIS:
   • Biblioteca Inicial Incluída: Começa a jogar de imediato com os cartuchos clássicos open-source pré-instalados.
   • Importador de Cartuchos (.P8 e .P8.PNG): Toca em [+CART] para importar qualquer cartucho a partir da memória do teu dispositivo.
-  • Comando Tátil Pocket Gamepad: D-Pad multi-toque e botões O/X otimizados para modo Vertical (Portrait) e Horizontal (Landscape).
+  • Comando Tátil Pocket Gamepad: Virtual Thumb Joystick analógico multi-toque e botões O/X otimizados para modo Vertical (Portrait) e Horizontal (Landscape).
   • Suporte Automático para Comandos Bluetooth/USB: Ao premires qualquer botão num comando físico, os botões táteis no ecrã ocultam-se automaticamente.
   • 100% Privado e Sem Publicidade: Sem anúncios, sem rastreadores e totalmente funcional offline.
 

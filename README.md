@@ -37,12 +37,12 @@
 ## Controls
 
 ### Pocket Touch Gamepad (Smartphones & Tablets)
-- **D-Pad (Bottom Left)**: 8-way directional input (`Up`, `Down`, `Left`, `Right` + diagonals).
+- **Virtual Thumb Joystick (Bottom Left)**: Floating analog thumbstick with 8-way directional tracking, centered thumb nub, and smart deadzone.
 - **`O` Button (Red, Bottom Right)**: Primary / Jump / Confirm (`Z` / `C`).
 - **`X` Button (Blue, Bottom Right)**: Secondary / Dash / Action (`X` / `V`).
 - **`[MENU]` (Top Left)**: Opens the in-game Pause / Settings / Reset menu.
 - **`[+CART]` (Top Center)**: Opens the native Android file picker to import any `.p8` or `.p8.png` cartridge from your Downloads folder or cloud storage.
-- **`[SCALE]` (Top Right)**: Cycles between Pixel-Perfect Integer Scaling and Fit-to-Bezel mode.
+- **`[SCALE]` (Top Right)**: Cycles between Handheld Fit (`FIT`), Pixel-Perfect Integer (`1:1`), and Fill Width (`MAX`) modes.
 
 ### Physical Bluetooth / USB Controllers (DualShock 4, DualSense, Xbox, 8BitDo, Retroid/Odin)
 - **Auto-Hide Overlay**: Pressing any button on a physical controller automatically hides the on-screen touch gamepad for an unobstructed display. Touching the screen brings the overlay back immediately.
