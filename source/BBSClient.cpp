@@ -44,6 +44,10 @@ static bool android_http_download(const char* url, const char* destPath) {
     jstring jUrl = env->NewStringUTF(url);
     jstring jDest = env->NewStringUTF(destPath);
     jboolean result = env->CallStaticBooleanMethod(cls, mid, jUrl, jDest);
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        result = JNI_FALSE;
+    }
 
     env->DeleteLocalRef(jUrl);
     env->DeleteLocalRef(jDest);

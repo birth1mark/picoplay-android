@@ -238,7 +238,7 @@ public class SDLAudioManager {
                 }
 
                 if (Build.VERSION.SDK_INT >= 24 /* Android 7.0 (N) */ && deviceId != 0) {
-                    mAudioRecord.setPreferredDevice(getOutputAudioDeviceInfo(deviceId));
+                    mAudioRecord.setPreferredDevice(getInputAudioDeviceInfo(deviceId));
                 }
 
                 mAudioRecord.startRecording();
@@ -265,7 +265,7 @@ public class SDLAudioManager {
                 }
 
                 if (Build.VERSION.SDK_INT >= 24 /* Android 7.0 (N) */ && deviceId != 0) {
-                    mAudioTrack.setPreferredDevice(getInputAudioDeviceInfo(deviceId));
+                    mAudioTrack.setPreferredDevice(getOutputAudioDeviceInfo(deviceId));
                 }
 
                 mAudioTrack.play();
@@ -443,7 +443,7 @@ public class SDLAudioManager {
 
     /** This method is called by SDL using JNI. */
     public static int captureReadFloatBuffer(float[] buffer, boolean blocking) {
-        if (Build.VERSION.SDK_INT < 23 /* Android 6.0 (M) */) {
+        if (mAudioRecord == null || Build.VERSION.SDK_INT < 23 /* Android 6.0 (M) */) {
             return 0;
         } else {
             return mAudioRecord.read(buffer, 0, buffer.length, blocking ? AudioRecord.READ_BLOCKING : AudioRecord.READ_NON_BLOCKING);
@@ -452,7 +452,9 @@ public class SDLAudioManager {
 
     /** This method is called by SDL using JNI. */
     public static int captureReadShortBuffer(short[] buffer, boolean blocking) {
-        if (Build.VERSION.SDK_INT < 23 /* Android 6.0 (M) */) {
+        if (mAudioRecord == null) {
+            return 0;
+        } else if (Build.VERSION.SDK_INT < 23 /* Android 6.0 (M) */) {
             return mAudioRecord.read(buffer, 0, buffer.length);
         } else {
             return mAudioRecord.read(buffer, 0, buffer.length, blocking ? AudioRecord.READ_BLOCKING : AudioRecord.READ_NON_BLOCKING);
@@ -461,7 +463,9 @@ public class SDLAudioManager {
 
     /** This method is called by SDL using JNI. */
     public static int captureReadByteBuffer(byte[] buffer, boolean blocking) {
-        if (Build.VERSION.SDK_INT < 23 /* Android 6.0 (M) */) {
+        if (mAudioRecord == null) {
+            return 0;
+        } else if (Build.VERSION.SDK_INT < 23 /* Android 6.0 (M) */) {
             return mAudioRecord.read(buffer, 0, buffer.length);
         } else {
             return mAudioRecord.read(buffer, 0, buffer.length, blocking ? AudioRecord.READ_BLOCKING : AudioRecord.READ_NON_BLOCKING);

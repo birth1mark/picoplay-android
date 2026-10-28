@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <string>
 #include "PicoRam.h"
 
 class Input{
@@ -8,7 +9,7 @@ class Input{
 	uint8_t _currentKDown;
     uint8_t _currentKHeld;
 
-	uint16_t _framesHeld[8];
+	uint32_t _framesHeld[8];
 
     int16_t _mouseX;
     int16_t _mouseY;

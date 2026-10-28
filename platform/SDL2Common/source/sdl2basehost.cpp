@@ -3,6 +3,8 @@
 #include <dirent.h>
 #include <errno.h>
 #include <algorithm>
+#include <vector>
+#include <math.h>
 
 #include <fstream>
 #include <iostream>
@@ -94,33 +96,40 @@ SDL_Rect g_btnMenuRect = {0, 0, 0, 0};
 SDL_Rect g_btnImportRect = {0, 0, 0, 0};
 SDL_Rect g_btnScaleRect = {0, 0, 0, 0};
 
-// Geometry rendering helpers with alpha blending
+// Geometry rendering helpers with alpha blending (batched for performance)
 static void renderFilledCircle(SDL_Renderer* r, int cx, int cy, int radius, Uint8 R, Uint8 G, Uint8 B, Uint8 A) {
+    if (radius <= 0) return;
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(r, R, G, B, A);
+    std::vector<SDL_Rect> rects;
+    rects.reserve(radius * 2 + 1);
     for (int dy = -radius; dy <= radius; dy++) {
         int dx = (int)sqrt(radius * radius - dy * dy);
-        SDL_RenderDrawLine(r, cx - dx, cy + dy, cx + dx, cy + dy);
+        rects.push_back({cx - dx, cy + dy, dx * 2 + 1, 1});
     }
+    SDL_RenderFillRects(r, rects.data(), (int)rects.size());
 }
 
 static void renderCircleRing(SDL_Renderer* r, int cx, int cy, int radius, int thickness, Uint8 R, Uint8 G, Uint8 B, Uint8 A) {
+    if (radius <= 0 || thickness <= 0) return;
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(r, R, G, B, A);
+    std::vector<SDL_Point> pts;
+    pts.reserve(radius * 8 * thickness);
     for (int t = 0; t < thickness; t++) {
         int rad = radius - t;
         if (rad <= 0) break;
         int x = rad, y = 0;
         int p = 1 - rad;
         while (x >= y) {
-            SDL_RenderDrawPoint(r, cx + x, cy + y);
-            SDL_RenderDrawPoint(r, cx - x, cy + y);
-            SDL_RenderDrawPoint(r, cx + x, cy - y);
-            SDL_RenderDrawPoint(r, cx - x, cy - y);
-            SDL_RenderDrawPoint(r, cx + y, cy + x);
-            SDL_RenderDrawPoint(r, cx - y, cy + x);
-            SDL_RenderDrawPoint(r, cx + y, cy - x);
-            SDL_RenderDrawPoint(r, cx - y, cy - x);
+            pts.push_back({cx + x, cy + y});
+            pts.push_back({cx - x, cy + y});
+            pts.push_back({cx + x, cy - y});
+            pts.push_back({cx - x, cy - y});
+            pts.push_back({cx + y, cy + x});
+            pts.push_back({cx - y, cy + x});
+            pts.push_back({cx + y, cy - x});
+            pts.push_back({cx - y, cy - x});
             y++;
             if (p <= 0) {
                 p += 2 * y + 1;
@@ -129,6 +138,9 @@ static void renderCircleRing(SDL_Renderer* r, int cx, int cy, int radius, int th
                 p += 2 * (y - x) + 1;
             }
         }
+    }
+    if (!pts.empty()) {
+        SDL_RenderDrawPoints(r, pts.data(), (int)pts.size());
     }
 }
 
@@ -166,24 +178,33 @@ static uint16_t getGlyph3x5(char c) {
 
 static void drawPixelText(SDL_Renderer* r, const char* text, int cx, int cy, int scale, Uint8 R, Uint8 G, Uint8 B, Uint8 A = 255) {
     int len = (int)strlen(text);
+    if (len <= 0) return;
     int totalW = len * 4 * scale - scale;
     int startX = cx - totalW / 2;
     int startY = cy - (5 * scale) / 2;
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(r, R, G, B, A);
+    std::vector<SDL_Rect> pxs;
+    pxs.reserve(len * 15);
     for (int i = 0; i < len; i++) {
         uint16_t g = getGlyph3x5(text[i]);
         int gx = startX + i * 4 * scale;
         for (int row = 0; row < 5; row++) {
             for (int col = 0; col < 3; col++) {
                 if ((g >> (14 - (row * 3 + col))) & 1) {
-                    SDL_Rect px = {gx + col * scale, startY + row * scale, scale, scale};
-                    SDL_RenderFillRect(r, &px);
+                    pxs.push_back({gx + col * scale, startY + row * scale, scale, scale});
                 }
             }
         }
     }
+    if (!pxs.empty()) {
+        SDL_RenderFillRects(r, pxs.data(), (int)pxs.size());
+    }
 }
+
+static int s_lastLayoutW = 0;
+static int s_lastLayoutH = 0;
+static int s_lastLayoutScale = -1;
 
 static void updateAndroidLayout() {
     int outW = _windowWidth, outH = _windowHeight;
@@ -191,6 +212,13 @@ static void updateAndroidLayout() {
         _windowWidth = outW;
         _windowHeight = outH;
     }
+
+    if (outW == s_lastLayoutW && outH == s_lastLayoutH && g_scaleMode == s_lastLayoutScale) {
+        return;
+    }
+    s_lastLayoutW = outW;
+    s_lastLayoutH = outH;
+    s_lastLayoutScale = g_scaleMode;
 
     bool portrait = (_windowHeight >= _windowWidth);
     if (portrait) {
@@ -691,18 +719,21 @@ bool Host::shouldQuit() {
 
 void Host::waitForTargetFps(){
     now_time = SDL_GetTicks();
+    if (last_time == 0) {
+        last_time = now_time;
+        return;
+    }
     frame_time = now_time - last_time;
-	last_time = now_time;
 
-
-	//sleep for remainder of time
-	if (frame_time < targetFrameTimeMs) {
-		uint32_t msToSleep = targetFrameTimeMs - frame_time;
-        
-        SDL_Delay(msToSleep);
-
-		last_time += msToSleep;
-	}
+    // Smooth frame pacing: avoid sleeping tiny durations (< 3ms) that clash with VSYNC
+    if (frame_time < targetFrameTimeMs) {
+        uint32_t msToSleep = targetFrameTimeMs - frame_time;
+        if (msToSleep >= 3) {
+            // Wake up slightly before VSYNC deadline to avoid dropping frames on high refresh displays
+            SDL_Delay(msToSleep - 1);
+        }
+    }
+    last_time = SDL_GetTicks();
 }
 
 

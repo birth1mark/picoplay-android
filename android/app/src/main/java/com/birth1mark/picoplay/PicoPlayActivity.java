@@ -40,6 +40,14 @@ public class PicoPlayActivity extends SDLActivity {
     }
 
     @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (sInstance == this) {
+            sInstance = null;
+        }
+    }
+
+    @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         handleIncomingIntent(intent);
@@ -205,13 +213,22 @@ public class PicoPlayActivity extends SDLActivity {
                 parent.mkdirs();
             }
 
+            File tmpFile = new File(destPath + ".tmp");
             try (InputStream in = conn.getInputStream();
-                 FileOutputStream out = new FileOutputStream(outFile)) {
+                 FileOutputStream out = new FileOutputStream(tmpFile)) {
                 byte[] buf = new byte[16384];
                 int read;
                 while ((read = in.read(buf)) != -1) {
                     out.write(buf, 0, read);
                 }
+            }
+
+            if (outFile.exists()) {
+                outFile.delete();
+            }
+            if (!tmpFile.renameTo(outFile)) {
+                tmpFile.delete();
+                return false;
             }
             return true;
         } catch (Exception e) {

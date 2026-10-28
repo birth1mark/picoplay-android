@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <vector>
 #include <string>
+#include <map>
 
 #include "../../../source/host.h"
 #include "../../../source/hostVmShared.h"
@@ -45,6 +46,7 @@ extern SDL_Rect g_btnScaleRect;
 
 static uint8_t s_prevCombinedHeld = 0;
 static uint8_t s_joyHeldMask = 0;
+static std::map<SDL_JoystickID, SDL_Joystick*> s_openJoysticks;
 static bool s_prevMenuTap = false;
 static bool s_prevImportTap = false;
 static bool s_prevScaleTap = false;
@@ -55,11 +57,14 @@ static void triggerAndroidImportPicker() {
     jobject activity = (jobject)SDL_AndroidGetActivity();
     if (!activity) return;
     jclass cls = env->GetObjectClass(activity);
-    jmethodID mid = env->GetStaticMethodID(cls, "openImportCartridgePicker", "()V");
+    jmethodID mid = cls ? env->GetStaticMethodID(cls, "openImportCartridgePicker", "()V") : nullptr;
     if (mid) {
         env->CallStaticVoidMethod(cls, mid);
+        if (env->ExceptionCheck()) env->ExceptionClear();
+    } else {
+        if (env->ExceptionCheck()) env->ExceptionClear();
     }
-    env->DeleteLocalRef(cls);
+    if (cls) env->DeleteLocalRef(cls);
     env->DeleteLocalRef(activity);
 }
 
@@ -187,9 +192,25 @@ InputState_t Host::scanInput() {
                 }
                 break;
 
-            case SDL_JOYDEVICEADDED:
-                SDL_JoystickOpen(event.jdevice.which);
+            case SDL_JOYDEVICEADDED: {
+                SDL_Joystick* joy = SDL_JoystickOpen(event.jdevice.which);
+                if (joy) {
+                    SDL_JoystickID id = SDL_JoystickInstanceID(joy);
+                    s_openJoysticks[id] = joy;
+                }
                 break;
+            }
+
+            case SDL_JOYDEVICEREMOVED: {
+                auto it = s_openJoysticks.find(event.jdevice.which);
+                if (it != s_openJoysticks.end()) {
+                    SDL_JoystickClose(it->second);
+                    s_openJoysticks.erase(it);
+                }
+                // Release held buttons/axes if a controller disconnected
+                s_joyHeldMask = 0;
+                break;
+            }
 
             case SDL_JOYBUTTONDOWN:
                 g_androidShowTouchControls = false;
@@ -351,7 +372,7 @@ InputState_t Host::scanInput() {
     kDown |= (combinedHeld & ~s_prevCombinedHeld);
     s_prevCombinedHeld = combinedHeld;
 
-    changeStretch();
+    // NOTE: changeStretch() is handled in Vm::GameLoop() to avoid running layout twice per frame
 
     return InputState_t {
         kDown,

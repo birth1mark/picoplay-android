@@ -6,7 +6,12 @@
 
 Input::Input(PicoRam* memory):
     _currentKDown(0),
-    _currentKHeld(0)
+    _currentKHeld(0),
+    _mouseX(0),
+    _mouseY(0),
+    _mouseBtnState(0),
+    _kbDown(false),
+    _kbKey("")
 {
     _memory = memory;
 
@@ -33,12 +38,14 @@ void Input::SetState(uint8_t kdown, uint8_t kheld){
 
     uint8_t repeatInterval = _memory->hwState.btnpRepeatInterval == 0 
         ? 4 
-        : _memory->hwState.btnpRepeatDelay;
+        : _memory->hwState.btnpRepeatInterval;
+    if (repeatInterval == 0) repeatInterval = 1;
 
     for (int i = 0; i < 7; i ++) {
         bool down = BITMASK(i) & kheld;
 
         _framesHeld[i] = down ? _framesHeld[i] + 1 : 0;
+        if (_framesHeld[i] > 60000) _framesHeld[i] = repeatDelay;
 
         //update kdown to be true if held for 15 frames, then every 4th after that.
         //from wiki:

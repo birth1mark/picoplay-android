@@ -607,7 +607,8 @@ void Audio::FillAudioBuffer(void *audioBuffer, size_t offset, size_t size){
                 double const offset_per_second = 22050.0 / 183.0;
                 double const offset_per_frame = offset_per_second * inv_frames_per_second;
                 _audioState._musicChannel.offset += offset_per_frame;
-                _audioState._musicChannel.fade_volume += (float)(_audioState._musicChannel.fade_volume_step * inv_frames_per_second);
+                double const music_inv_fps = 1.0 / 22050.0;
+                _audioState._musicChannel.fade_volume += (float)(_audioState._musicChannel.fade_volume_step * music_inv_fps);
                 _audioState._musicChannel.fade_volume = clamp(_audioState._musicChannel.fade_volume, 0.f, 1.f);
 
                 if (_audioState._musicChannel.fade_volume_step < 0 && _audioState._musicChannel.fade_volume <= 0)
@@ -624,8 +625,16 @@ void Audio::FillAudioBuffer(void *audioBuffer, size_t offset, size_t size){
                         next_count = -1;
                     }
                     else if (_memory->songs[_audioState._musicChannel.pattern].getLoop())
-                        while (--next_pattern > 0 && !_memory->songs[next_pattern].getStart())
-                            ;
+                    {
+                        int16_t loop_target = -1;
+                        for (int16_t p = next_pattern - 1; p >= 0; --p) {
+                            if (_memory->songs[p].getStart()) {
+                                loop_target = p;
+                                break;
+                            }
+                        }
+                        next_pattern = (loop_target >= 0) ? loop_target : 0;
+                    }
 
                     _audioState._musicChannel.count = next_count;
                     set_music_pattern(next_pattern);
@@ -827,7 +836,8 @@ void Audio::FillMonoAudioBuffer(void *audioBuffer, size_t offset, size_t size){
                 double const offset_per_second = 22050.0 / 183.0;
                 double const offset_per_frame = offset_per_second * inv_frames_per_second;
                 _audioState._musicChannel.offset += offset_per_frame;
-                _audioState._musicChannel.fade_volume += (float)(_audioState._musicChannel.fade_volume_step * inv_frames_per_second);
+                double const music_inv_fps = 1.0 / 22050.0;
+                _audioState._musicChannel.fade_volume += (float)(_audioState._musicChannel.fade_volume_step * music_inv_fps);
                 _audioState._musicChannel.fade_volume = clamp(_audioState._musicChannel.fade_volume, 0.f, 1.f);
 
                 if (_audioState._musicChannel.fade_volume_step < 0 && _audioState._musicChannel.fade_volume <= 0)
@@ -844,8 +854,16 @@ void Audio::FillMonoAudioBuffer(void *audioBuffer, size_t offset, size_t size){
                         next_count = -1;
                     }
                     else if (_memory->songs[_audioState._musicChannel.pattern].getLoop())
-                        while (--next_pattern > 0 && !_memory->songs[next_pattern].getStart())
-                            ;
+                    {
+                        int16_t loop_target = -1;
+                        for (int16_t p = next_pattern - 1; p >= 0; --p) {
+                            if (_memory->songs[p].getStart()) {
+                                loop_target = p;
+                                break;
+                            }
+                        }
+                        next_pattern = (loop_target >= 0) ? loop_target : 0;
+                    }
 
                     _audioState._musicChannel.count = next_count;
                     set_music_pattern(next_pattern);

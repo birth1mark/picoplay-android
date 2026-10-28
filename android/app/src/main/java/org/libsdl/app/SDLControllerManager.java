@@ -455,10 +455,10 @@ class SDLJoystickHandler_API19 extends SDLJoystickHandler_API16 {
             (1 << 30),  // 11 -> ??
             (1 << 31),  // 12 -> ??
             // We're out of room...
-            0xFFFFFFFF,  // 13 -> ??
-            0xFFFFFFFF,  // 14 -> ??
-            0xFFFFFFFF,  // 15 -> ??
-            0xFFFFFFFF,  // 16 -> ??
+            0,  // 13 -> ??
+            0,  // 14 -> ??
+            0,  // 15 -> ??
+            0,  // 16 -> ??
         };
         boolean[] has_keys = joystickDevice.hasKeys(keys);
         for (int i = 0; i < keys.length; ++i) {
