@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
 import android.util.Log;
+import android.view.InputDevice;
 import android.widget.Toast;
 
 import org.libsdl.app.SDLActivity;
@@ -159,6 +160,26 @@ public class PicoPlayActivity extends SDLActivity {
                 }
             });
         }
+    }
+
+    public static boolean hasPhysicalGamepadOrKeyboard() {
+        try {
+            int[] deviceIds = InputDevice.getDeviceIds();
+            for (int id : deviceIds) {
+                InputDevice dev = InputDevice.getDevice(id);
+                if (dev == null || dev.isVirtual()) continue;
+                int sources = dev.getSources();
+                boolean isGamepad = (sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD;
+                boolean isJoystick = (sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK;
+                boolean isKeyboard = (dev.getKeyboardType() == InputDevice.KEYBOARD_TYPE_ALPHABETIC);
+                if (isGamepad || isJoystick || isKeyboard) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking input devices", e);
+        }
+        return false;
     }
 
     public static boolean downloadUrlToFile(String urlStr, String destPath) {

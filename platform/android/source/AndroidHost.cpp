@@ -26,9 +26,19 @@ extern SDL_Renderer *renderer;
 
 extern bool g_androidShowTouchControls;
 extern uint8_t g_androidTouchHeldMask;
-extern SDL_Rect g_dpadRect;
-extern SDL_Rect g_btnORect;
-extern SDL_Rect g_btnXRect;
+extern int g_scaleMode;
+
+extern int g_stickBaseX;
+extern int g_stickBaseY;
+extern int g_stickNubX;
+extern int g_stickNubY;
+extern int g_stickRadius;
+extern int g_stickNubRadius;
+extern bool g_stickActive;
+
+extern int g_btnOCenterX, g_btnOCenterY, g_btnORadius;
+extern int g_btnXCenterX, g_btnXCenterY, g_btnXRadius;
+
 extern SDL_Rect g_btnMenuRect;
 extern SDL_Rect g_btnImportRect;
 extern SDL_Rect g_btnScaleRect;
@@ -57,6 +67,14 @@ static bool pointInExpandedRect(int px, int py, const SDL_Rect& r, int pad) {
     if (r.w <= 0 || r.h <= 0) return false;
     return (px >= r.x - pad && px <= r.x + r.w + pad &&
             py >= r.y - pad && py <= r.y + r.h + pad);
+}
+
+static bool pointInCircle(int px, int py, int cx, int cy, int radius, int pad) {
+    if (radius <= 0) return false;
+    int dx = px - cx;
+    int dy = py - cy;
+    int maxR = radius + pad;
+    return (dx * dx + dy * dy) <= (maxR * maxR);
 }
 
 Host::Host(int windowWidth, int windowHeight)
@@ -96,6 +114,24 @@ Host::Host(int windowWidth, int windowHeight)
         customBiosLua,
         cartsDir
     );
+
+    // Auto-detect if a physical controller (gamepad/joystick) or physical keyboard is present
+    bool hasPhysical = false;
+    JNIEnv* env = (JNIEnv*)SDL_AndroidGetJNIEnv();
+    if (env) {
+        jobject activity = (jobject)SDL_AndroidGetActivity();
+        if (activity) {
+            jclass cls = env->GetObjectClass(activity);
+            jmethodID mid = env->GetStaticMethodID(cls, "hasPhysicalGamepadOrKeyboard", "()Z");
+            if (mid) {
+                hasPhysical = env->CallStaticBooleanMethod(cls, mid);
+            }
+            env->DeleteLocalRef(cls);
+            env->DeleteLocalRef(activity);
+        }
+    }
+    // If physical controller/keyboard is connected, start with touch overlay hidden
+    g_androidShowTouchControls = !hasPhysical;
 }
 
 InputState_t Host::scanInput() {
@@ -149,6 +185,11 @@ InputState_t Host::scanInput() {
                 }
                 break;
 
+            case SDL_JOYDEVICEADDED:
+                SDL_JoystickOpen(event.jdevice.which);
+                g_androidShowTouchControls = false;
+                break;
+
             case SDL_JOYBUTTONDOWN:
                 g_androidShowTouchControls = false;
                 if (event.jbutton.button == 0 || event.jbutton.button == 2) s_joyHeldMask |= P8_KEY_X;
@@ -190,8 +231,10 @@ InputState_t Host::scanInput() {
     bool menuTapped = false;
     bool importTapped = false;
     bool scaleTapped = false;
+    bool stickTouchFound = false;
 
     if (g_androidShowTouchControls) {
+        bool portrait = (_windowHeight >= _windowWidth);
         int numTouchDevs = SDL_GetNumTouchDevices();
         for (int d = 0; d < numTouchDevs; d++) {
             SDL_TouchID tid = SDL_GetTouchDevice(d);
@@ -202,33 +245,50 @@ InputState_t Host::scanInput() {
                 int tx = (int)(finger->x * _windowWidth);
                 int ty = (int)(finger->y * _windowHeight);
 
-                // Top menu pills
-                if (pointInExpandedRect(tx, ty, g_btnMenuRect, 8)) {
+                // Top menu pills (generous 28px padding for easy fingertip access)
+                if (pointInExpandedRect(tx, ty, g_btnMenuRect, 28)) {
                     menuTapped = true;
-                } else if (pointInExpandedRect(tx, ty, g_btnImportRect, 8)) {
+                } else if (pointInExpandedRect(tx, ty, g_btnImportRect, 28)) {
                     importTapped = true;
-                } else if (pointInExpandedRect(tx, ty, g_btnScaleRect, 8)) {
+                } else if (pointInExpandedRect(tx, ty, g_btnScaleRect, 28)) {
                     scaleTapped = true;
                 }
 
-                // D-Pad
-                if (pointInExpandedRect(tx, ty, g_dpadRect, 20)) {
-                    int dpadCx = g_dpadRect.x + g_dpadRect.w / 2;
-                    int dpadCy = g_dpadRect.y + g_dpadRect.h / 2;
-                    int deadzone = g_dpadRect.w / 8;
-                    int dx = tx - dpadCx;
-                    int dy = ty - dpadCy;
-                    if (dx < -deadzone) touchMask |= P8_KEY_LEFT;
-                    if (dx >  deadzone) touchMask |= P8_KEY_RIGHT;
-                    if (dy < -deadzone) touchMask |= P8_KEY_UP;
-                    if (dy >  deadzone) touchMask |= P8_KEY_DOWN;
+                // Transparent Thumb Virtual Joystick (Left Control Zone)
+                bool inLeftZone = portrait ? (tx < _windowWidth * 55 / 100 && ty > DestR.y + DestR.h)
+                                           : (tx < DestR.x && ty > 60);
+                if (inLeftZone) {
+                    float dx = (float)(tx - g_stickBaseX);
+                    float dy = (float)(ty - g_stickBaseY);
+                    float dist = sqrtf(dx * dx + dy * dy);
+                    if (dist <= g_stickRadius * 2.5f) {
+                        stickTouchFound = true;
+                        g_stickActive = true;
+                        float maxNubDist = (float)g_stickRadius;
+                        if (dist > maxNubDist) {
+                            g_stickNubX = g_stickBaseX + (int)(dx / dist * maxNubDist);
+                            g_stickNubY = g_stickBaseY + (int)(dy / dist * maxNubDist);
+                        } else {
+                            g_stickNubX = tx;
+                            g_stickNubY = ty;
+                        }
+
+                        float deadzone = g_stickRadius * 0.22f;
+                        if (dist > deadzone) {
+                            float thresh = deadzone * 0.70f;
+                            if (dx < -thresh) touchMask |= P8_KEY_LEFT;
+                            if (dx >  thresh) touchMask |= P8_KEY_RIGHT;
+                            if (dy < -thresh) touchMask |= P8_KEY_UP;
+                            if (dy >  thresh) touchMask |= P8_KEY_DOWN;
+                        }
+                    }
                 }
 
-                // Action Buttons
-                if (pointInExpandedRect(tx, ty, g_btnORect, 16)) {
+                // Circular Action Buttons O (Red) and X (Blue) with 24px pad
+                if (pointInCircle(tx, ty, g_btnOCenterX, g_btnOCenterY, g_btnORadius, 24)) {
                     touchMask |= P8_KEY_O;
                 }
-                if (pointInExpandedRect(tx, ty, g_btnXRect, 16)) {
+                if (pointInCircle(tx, ty, g_btnXCenterX, g_btnXCenterY, g_btnXRadius, 24)) {
                     touchMask |= P8_KEY_X;
                 }
 
@@ -244,6 +304,14 @@ InputState_t Host::scanInput() {
                 }
             }
         }
+
+        if (!stickTouchFound) {
+            g_stickActive = false;
+            g_stickNubX = g_stickBaseX;
+            g_stickNubY = g_stickBaseY;
+        }
+    } else {
+        g_stickActive = false;
     }
 
     // Top button edge detection (fires only once per tap)

@@ -74,12 +74,63 @@ bool audioInitialized = false;
 // Shared touch state updated by AndroidHost.cpp
 bool g_androidShowTouchControls = true;
 uint8_t g_androidTouchHeldMask = 0;
-SDL_Rect g_dpadRect = {0, 0, 0, 0};
-SDL_Rect g_btnORect = {0, 0, 0, 0};
-SDL_Rect g_btnXRect = {0, 0, 0, 0};
+int g_scaleMode = 0; // 0 = Fit Handheld, 1 = Pixel Perfect, 2 = Fill Width
+
+// Virtual Transparent Thumb Joystick coordinates
+int g_stickBaseX = 0;
+int g_stickBaseY = 0;
+int g_stickNubX = 0;
+int g_stickNubY = 0;
+int g_stickRadius = 80;
+int g_stickNubRadius = 36;
+bool g_stickActive = false;
+
+// Circular Action Buttons: O (Red) and X (Blue)
+int g_btnOCenterX = 0, g_btnOCenterY = 0, g_btnORadius = 45;
+int g_btnXCenterX = 0, g_btnXCenterY = 0, g_btnXRadius = 45;
+
+// Top bar pills (MENU, +CART, SCALE)
 SDL_Rect g_btnMenuRect = {0, 0, 0, 0};
 SDL_Rect g_btnImportRect = {0, 0, 0, 0};
 SDL_Rect g_btnScaleRect = {0, 0, 0, 0};
+
+// Geometry rendering helpers with alpha blending
+static void renderFilledCircle(SDL_Renderer* r, int cx, int cy, int radius, Uint8 R, Uint8 G, Uint8 B, Uint8 A) {
+    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(r, R, G, B, A);
+    for (int dy = -radius; dy <= radius; dy++) {
+        int dx = (int)sqrt(radius * radius - dy * dy);
+        SDL_RenderDrawLine(r, cx - dx, cy + dy, cx + dx, cy + dy);
+    }
+}
+
+static void renderCircleRing(SDL_Renderer* r, int cx, int cy, int radius, int thickness, Uint8 R, Uint8 G, Uint8 B, Uint8 A) {
+    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(r, R, G, B, A);
+    for (int t = 0; t < thickness; t++) {
+        int rad = radius - t;
+        if (rad <= 0) break;
+        int x = rad, y = 0;
+        int p = 1 - rad;
+        while (x >= y) {
+            SDL_RenderDrawPoint(r, cx + x, cy + y);
+            SDL_RenderDrawPoint(r, cx - x, cy + y);
+            SDL_RenderDrawPoint(r, cx + x, cy - y);
+            SDL_RenderDrawPoint(r, cx - x, cy - y);
+            SDL_RenderDrawPoint(r, cx + y, cy + x);
+            SDL_RenderDrawPoint(r, cx - y, cy + x);
+            SDL_RenderDrawPoint(r, cx + y, cy - x);
+            SDL_RenderDrawPoint(r, cx - y, cy - x);
+            y++;
+            if (p <= 0) {
+                p += 2 * y + 1;
+            } else {
+                x--;
+                p += 2 * (y - x) + 1;
+            }
+        }
+    }
+}
 
 // Compact 3x5 pixel font for retro touch button labels
 static uint16_t getGlyph3x5(char c) {
@@ -106,17 +157,20 @@ static uint16_t getGlyph3x5(char c) {
         case 'V': return 0b101101101101010;
         case 'X': return 0b101101010101101;
         case 'Y': return 0b101101010010010;
+        case '1': return 0b010110010010111;
+        case ':': return 0b000010000010000;
         case '+': return 0b000010111010000;
         default:  return 0;
     }
 }
 
-static void drawPixelText(SDL_Renderer* r, const char* text, int cx, int cy, int scale, Uint8 R, Uint8 G, Uint8 B) {
+static void drawPixelText(SDL_Renderer* r, const char* text, int cx, int cy, int scale, Uint8 R, Uint8 G, Uint8 B, Uint8 A = 255) {
     int len = (int)strlen(text);
     int totalW = len * 4 * scale - scale;
     int startX = cx - totalW / 2;
     int startY = cy - (5 * scale) / 2;
-    SDL_SetRenderDrawColor(r, R, G, B, 255);
+    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(r, R, G, B, A);
     for (int i = 0; i < len; i++) {
         uint16_t g = getGlyph3x5(text[i]);
         int gx = startX + i * 4 * scale;
@@ -140,139 +194,185 @@ static void updateAndroidLayout() {
 
     bool portrait = (_windowHeight >= _windowWidth);
     if (portrait) {
-        int topSafe = _windowHeight / 28;
-        int topBarH = _windowHeight / 22;
-        int btnW = (_windowWidth - 64) / 3;
+        // Safe inset from camera notch / top status bar: at least 70px or 7% of screen height
+        int topSafe = std::max(70, _windowHeight * 7 / 100);
+        int topBarH = std::max(48, _windowHeight * 5 / 100);
+        int marginX = 20;
+        int spacing = 14;
+        int btnW = (_windowWidth - (marginX * 2) - (spacing * 2)) / 3;
 
-        g_btnMenuRect   = {16, topSafe, btnW, topBarH};
-        g_btnImportRect = {16 + btnW + 16, topSafe, btnW, topBarH};
-        g_btnScaleRect  = {16 + (btnW + 16) * 2, topSafe, btnW, topBarH};
+        g_btnMenuRect   = {marginX, topSafe, btnW, topBarH};
+        g_btnImportRect = {marginX + btnW + spacing, topSafe, btnW, topBarH};
+        g_btnScaleRect  = {marginX + (btnW + spacing) * 2, topSafe, btnW, topBarH};
 
-        int margin = _windowWidth / 24;
-        int maxScreen = std::min(_windowWidth - margin * 2, (_windowHeight * 52) / 100);
-        _screenWidth = maxScreen;
-        _screenHeight = maxScreen;
+        // PICO-8 screen sizing based on selected scaleMode
+        int maxAvailableH = (_windowHeight * 48) / 100;
+        int maxAvailableW = _windowWidth - 24;
+        int baseSize = std::min(maxAvailableW, maxAvailableH);
+
+        if (g_scaleMode == 1) {
+            // Pixel-Perfect Integer scaling (multiple of 128)
+            int factor = baseSize / PicoScreenWidth;
+            if (factor < 1) factor = 1;
+            _screenWidth = factor * PicoScreenWidth;
+            _screenHeight = factor * PicoScreenHeight;
+        } else if (g_scaleMode == 2) {
+            // Max Wide / Fill Width
+            _screenWidth = _windowWidth;
+            _screenHeight = _windowWidth; // keep 1:1 square aspect ratio
+        } else {
+            // Mode 0: Handheld Bezel Fit (Default)
+            _screenWidth = baseSize;
+            _screenHeight = baseSize;
+        }
 
         DestR.w = _screenWidth;
         DestR.h = _screenHeight;
         DestR.x = (_windowWidth - _screenWidth) / 2;
-        DestR.y = topSafe + topBarH + (_windowHeight / 36);
+        DestR.y = topSafe + topBarH + 20;
 
-        int controlsTop = DestR.y + DestR.h + (_windowHeight / 28);
-        int controlsH = _windowHeight - controlsTop - (_windowHeight / 24);
-        int dpadSize = std::min(_windowWidth * 44 / 100, std::max(180, controlsH * 78 / 100));
-        int dpadX = _windowWidth * 7 / 100;
-        int dpadY = controlsTop + (controlsH - dpadSize) / 2;
-        g_dpadRect = {dpadX, dpadY, dpadSize, dpadSize};
+        // Bottom Controls Area
+        int bottomAreaY = DestR.y + DestR.h + 20;
+        int bottomAreaH = _windowHeight - bottomAreaY;
 
-        int btnSize = dpadSize * 40 / 100;
-        int rightAreaX = _windowWidth * 54 / 100;
-        int rightAreaW = _windowWidth * 40 / 100;
-        g_btnORect = {rightAreaX + 8, dpadY + dpadSize - btnSize - 6, btnSize, btnSize};
-        g_btnXRect = {rightAreaX + rightAreaW - btnSize - 4, dpadY + 12, btnSize, btnSize};
+        // Thumb Virtual Joystick geometry (Lower Left)
+        g_stickRadius = std::min(_windowWidth * 18 / 100, bottomAreaH * 38 / 100);
+        if (g_stickRadius < 65) g_stickRadius = 65;
+        g_stickNubRadius = g_stickRadius * 46 / 100;
+        g_stickBaseX = _windowWidth * 25 / 100;
+        g_stickBaseY = bottomAreaY + bottomAreaH * 52 / 100;
+
+        if (!g_stickActive) {
+            g_stickNubX = g_stickBaseX;
+            g_stickNubY = g_stickBaseY;
+        }
+
+        // Circular Action Buttons (Lower Right)
+        g_btnORadius = g_stickRadius * 52 / 100;
+        g_btnXRadius = g_btnORadius;
+
+        // Ergonomic slanted placement for thumb
+        int rightHubX = _windowWidth * 75 / 100;
+        int rightHubY = g_stickBaseY;
+        g_btnOCenterX = rightHubX - g_btnORadius - 6;
+        g_btnOCenterY = rightHubY + g_btnORadius - 4;
+
+        g_btnXCenterX = rightHubX + g_btnXRadius + 6;
+        g_btnXCenterY = rightHubY - g_btnXRadius + 8;
     } else {
         // Landscape layout
-        int margin = _windowHeight / 24;
-        int maxScreen = _windowHeight - margin * 2;
-        _screenWidth = maxScreen;
-        _screenHeight = maxScreen;
+        int maxScreen = _windowHeight - 20;
+        if (g_scaleMode == 1) {
+            int factor = maxScreen / PicoScreenWidth;
+            if (factor < 1) factor = 1;
+            _screenWidth = factor * PicoScreenWidth;
+            _screenHeight = factor * PicoScreenHeight;
+        } else {
+            _screenWidth = maxScreen;
+            _screenHeight = maxScreen;
+        }
         DestR.w = _screenWidth;
         DestR.h = _screenHeight;
         DestR.x = (_windowWidth - _screenWidth) / 2;
         DestR.y = (_windowHeight - _screenHeight) / 2;
 
-        int sideW = std::max(140, DestR.x - 16);
-        int topBtnH = _windowHeight / 12;
-        g_btnMenuRect   = {16, 20, sideW * 45 / 100, topBtnH};
-        g_btnImportRect = {_windowWidth - sideW + 8, 20, sideW * 45 / 100, topBtnH};
-        g_btnScaleRect  = {_windowWidth - (sideW * 45 / 100) - 16, 20, sideW * 45 / 100, topBtnH};
+        int sideW = std::max(160, DestR.x - 16);
+        int topBtnH = std::max(40, _windowHeight / 12);
+        int topBtnW = sideW * 44 / 100;
 
-        int dpadSize = std::min(sideW - 16, _windowHeight * 52 / 100);
-        g_dpadRect = {16 + (sideW - dpadSize) / 2, _windowHeight - dpadSize - 32, dpadSize, dpadSize};
+        int topSafeLand = std::max(28, _windowHeight * 4 / 100);
+        g_btnMenuRect   = {20, topSafeLand, topBtnW, topBtnH};
+        g_btnImportRect = {20 + topBtnW + 12, topSafeLand, topBtnW, topBtnH};
+        g_btnScaleRect  = {_windowWidth - topBtnW - 20, topSafeLand, topBtnW, topBtnH};
 
-        int btnSize = dpadSize * 42 / 100;
-        int rightX = DestR.x + DestR.w + 12;
-        g_btnORect = {rightX + 8, _windowHeight - btnSize - 36, btnSize, btnSize};
-        g_btnXRect = {_windowWidth - btnSize - 20, _windowHeight - btnSize * 2 - 48, btnSize, btnSize};
+        // Virtual joystick on left margin
+        g_stickRadius = std::min(sideW * 38 / 100, _windowHeight * 25 / 100);
+        g_stickNubRadius = g_stickRadius * 46 / 100;
+        g_stickBaseX = sideW / 2 + 10;
+        g_stickBaseY = _windowHeight * 64 / 100;
+
+        if (!g_stickActive) {
+            g_stickNubX = g_stickBaseX;
+            g_stickNubY = g_stickBaseY;
+        }
+
+        // Action buttons on right margin
+        g_btnORadius = g_stickRadius * 52 / 100;
+        g_btnXRadius = g_btnORadius;
+        int rightBaseX = _windowWidth - sideW / 2 - 10;
+        g_btnOCenterX = rightBaseX - g_btnORadius;
+        g_btnOCenterY = _windowHeight * 68 / 100;
+        g_btnXCenterX = rightBaseX + g_btnXRadius;
+        g_btnXCenterY = _windowHeight * 54 / 100;
     }
 }
 
 static void drawAndroidOverlay() {
-    // Draw retro handheld bezel around DestR
-    SDL_Rect bezel = {DestR.x - 8, DestR.y - 8, DestR.w + 16, DestR.h + 16};
-    SDL_SetRenderDrawColor(renderer, 29, 43, 83, 255);
-    SDL_RenderDrawRect(renderer, &bezel);
-    SDL_Rect bezel2 = {DestR.x - 4, DestR.y - 4, DestR.w + 8, DestR.h + 8};
-    SDL_SetRenderDrawColor(renderer, 95, 87, 79, 255);
-    SDL_RenderDrawRect(renderer, &bezel2);
+    // 1. Draw retro handheld bezel around DestR (if in mode 0 or 1)
+    if (g_scaleMode != 2) {
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_Rect bezel = {DestR.x - 8, DestR.y - 8, DestR.w + 16, DestR.h + 16};
+        SDL_SetRenderDrawColor(renderer, 29, 43, 83, 255);
+        SDL_RenderDrawRect(renderer, &bezel);
+        SDL_Rect bezel2 = {DestR.x - 4, DestR.y - 4, DestR.w + 8, DestR.h + 8};
+        SDL_SetRenderDrawColor(renderer, 95, 87, 79, 255);
+        SDL_RenderDrawRect(renderer, &bezel2);
+    }
 
     if (!g_androidShowTouchControls) return;
 
-    int fontScale = std::max(2, _windowWidth / 180);
+    int fontScale = std::max(2, _windowWidth / 200);
 
-    // Top bar pills: MENU, IMPORT, SCALE
+    // 2. Top bar pills: [MENU], [+CART], [SCALE]
     auto drawPill = [&](const SDL_Rect& r, const char* label, Uint8 bgR, Uint8 bgG, Uint8 bgB) {
-        SDL_SetRenderDrawColor(renderer, bgR, bgG, bgB, 255);
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer, bgR, bgG, bgB, 210);
         SDL_RenderFillRect(renderer, &r);
-        SDL_SetRenderDrawColor(renderer, 194, 195, 199, 255);
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 140);
         SDL_RenderDrawRect(renderer, &r);
-        drawPixelText(renderer, label, r.x + r.w / 2, r.y + r.h / 2, fontScale, 255, 241, 232);
+        drawPixelText(renderer, label, r.x + r.w / 2, r.y + r.h / 2, fontScale, 255, 255, 255, 240);
     };
 
-    drawPill(g_btnMenuRect,   "MENU",   29, 43, 83);
-    drawPill(g_btnImportRect, "+CART",  0, 135, 81);
-    drawPill(g_btnScaleRect,  "SCALE",  95, 87, 79);
+    drawPill(g_btnMenuRect,   "MENU",  29, 43, 83);
+    drawPill(g_btnImportRect, "+CART", 0, 135, 81);
 
-    // D-Pad Cross
-    int armW = g_dpadRect.w / 3;
-    int cx = g_dpadRect.x + armW;
-    int cy = g_dpadRect.y + armW;
+    const char* scaleLabel = (g_scaleMode == 1) ? "1:1" : ((g_scaleMode == 2) ? "MAX" : "FIT");
+    drawPill(g_btnScaleRect,  scaleLabel, 95, 87, 79);
 
-    SDL_Rect upArm    = {cx, g_dpadRect.y, armW, armW};
-    SDL_Rect downArm  = {cx, cy + armW, armW, armW};
-    SDL_Rect leftArm  = {g_dpadRect.x, cy, armW, armW};
-    SDL_Rect rightArm = {cx + armW, cy, armW, armW};
-    SDL_Rect centerHub = {cx, cy, armW, armW};
+    // 3. Transparent Floating Thumb Virtual Joystick
+    // Outer Base Ring: soft glowing semi-transparent glass
+    renderFilledCircle(renderer, g_stickBaseX, g_stickBaseY, g_stickRadius, 255, 255, 255, 18);
+    renderCircleRing(renderer, g_stickBaseX, g_stickBaseY, g_stickRadius, 3, 255, 255, 255, 85);
 
-    auto drawArm = [&](const SDL_Rect& r, bool pressed, const char* sym) {
-        if (pressed) {
-            SDL_SetRenderDrawColor(renderer, 41, 173, 255, 255);
-        } else {
-            SDL_SetRenderDrawColor(renderer, 45, 50, 68, 255);
-        }
-        SDL_RenderFillRect(renderer, &r);
-        SDL_SetRenderDrawColor(renderer, 194, 195, 199, 255);
-        SDL_RenderDrawRect(renderer, &r);
-        drawPixelText(renderer, sym, r.x + r.w / 2, r.y + r.h / 2, fontScale + 1, 255, 241, 232);
+    // 4 Directional indicator ticks (North, South, West, East)
+    int tickD = g_stickRadius - 10;
+    renderFilledCircle(renderer, g_stickBaseX, g_stickBaseY - tickD, 4, 255, 255, 255, (g_androidTouchHeldMask & P8_KEY_UP) ? 240 : 80);
+    renderFilledCircle(renderer, g_stickBaseX, g_stickBaseY + tickD, 4, 255, 255, 255, (g_androidTouchHeldMask & P8_KEY_DOWN) ? 240 : 80);
+    renderFilledCircle(renderer, g_stickBaseX - tickD, g_stickBaseY, 4, 255, 255, 255, (g_androidTouchHeldMask & P8_KEY_LEFT) ? 240 : 80);
+    renderFilledCircle(renderer, g_stickBaseX + tickD, g_stickBaseY, 4, 255, 255, 255, (g_androidTouchHeldMask & P8_KEY_RIGHT) ? 240 : 80);
+
+    // Inner Thumb Knob (Nub): moves with player's thumb
+    Uint8 nubR = g_stickActive ? 41 : 180;
+    Uint8 nubG = g_stickActive ? 173 : 190;
+    Uint8 nubB = g_stickActive ? 255 : 210;
+    Uint8 nubA = g_stickActive ? 180 : 90;
+    renderFilledCircle(renderer, g_stickNubX, g_stickNubY, g_stickNubRadius, nubR, nubG, nubB, nubA);
+    renderCircleRing(renderer, g_stickNubX, g_stickNubY, g_stickNubRadius, 2, 255, 255, 255, g_stickActive ? 220 : 120);
+    renderFilledCircle(renderer, g_stickNubX, g_stickNubY, g_stickNubRadius / 3, 255, 255, 255, g_stickActive ? 240 : 100);
+
+    // 4. Action Buttons: O (Red) and X (Blue) with smooth circular arcade glow
+    auto drawCircularBtn = [&](int cx, int cy, int radius, bool pressed, const char* label, Uint8 R, Uint8 G, Uint8 B) {
+        Uint8 btnA = pressed ? 230 : 140;
+        Uint8 curR = pressed ? 255 : R;
+        Uint8 curG = pressed ? 236 : G;
+        Uint8 curB = pressed ? 39 : B;
+        renderFilledCircle(renderer, cx, cy, radius, curR, curG, curB, btnA);
+        renderCircleRing(renderer, cx, cy, radius, 3, 255, 255, 255, pressed ? 255 : 160);
+        drawPixelText(renderer, label, cx, cy, fontScale + 3, pressed ? 0 : 255, pressed ? 0 : 255, pressed ? 0 : 255, 255);
     };
 
-    SDL_SetRenderDrawColor(renderer, 32, 36, 50, 255);
-    SDL_RenderFillRect(renderer, &centerHub);
-    drawArm(upArm,    (g_androidTouchHeldMask & P8_KEY_UP) != 0,    "U");
-    drawArm(downArm,  (g_androidTouchHeldMask & P8_KEY_DOWN) != 0,  "D");
-    drawArm(leftArm,  (g_androidTouchHeldMask & P8_KEY_LEFT) != 0,  "L");
-    drawArm(rightArm, (g_androidTouchHeldMask & P8_KEY_RIGHT) != 0, "R");
-
-    // Action Buttons: O (Red #FF004D) and X (Blue #29ADFF)
-    auto drawActionBtn = [&](const SDL_Rect& r, bool pressed, const char* label, Uint8 R, Uint8 G, Uint8 B) {
-        SDL_Rect shadow = {r.x + 4, r.y + 6, r.w, r.h};
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderFillRect(renderer, &shadow);
-
-        SDL_Rect body = pressed ? SDL_Rect{r.x + 2, r.y + 3, r.w, r.h} : r;
-        if (pressed) {
-            SDL_SetRenderDrawColor(renderer, 255, 236, 39, 255);
-        } else {
-            SDL_SetRenderDrawColor(renderer, R, G, B, 255);
-        }
-        SDL_RenderFillRect(renderer, &body);
-        SDL_SetRenderDrawColor(renderer, 255, 241, 232, 255);
-        SDL_RenderDrawRect(renderer, &body);
-        drawPixelText(renderer, label, body.x + body.w / 2, body.y + body.h / 2, fontScale + 3, pressed ? 0 : 255, pressed ? 0 : 241, pressed ? 0 : 232);
-    };
-
-    drawActionBtn(g_btnORect, (g_androidTouchHeldMask & P8_KEY_O) != 0, "O", 255, 0, 77);
-    drawActionBtn(g_btnXRect, (g_androidTouchHeldMask & P8_KEY_X) != 0, "X", 41, 173, 255);
+    drawCircularBtn(g_btnOCenterX, g_btnOCenterY, g_btnORadius, (g_androidTouchHeldMask & P8_KEY_O) != 0, "O", 255, 0, 77);
+    drawCircularBtn(g_btnXCenterX, g_btnXCenterY, g_btnXRadius, (g_androidTouchHeldMask & P8_KEY_X) != 0, "X", 41, 173, 255);
 }
 #endif
 
@@ -516,6 +616,14 @@ void Host::setTargetFps(int targetFps){
 }
 
 void Host::changeStretch(){
+#if defined(__ANDROID__)
+    if (stretchKeyPressed) {
+        g_scaleMode = (g_scaleMode + 1) % 3;
+        updateAndroidLayout();
+        stretchKeyPressed = false;
+    }
+    return;
+#endif
     if (stretchKeyPressed && resizekey == YesResize) {
         StretchOption newStretch = stretch;
 
