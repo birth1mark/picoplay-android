@@ -127,10 +127,6 @@ end
 
 function classic_update()
 	t += 1
-	if t % 60 == 0 then
-		if __refreshcarts then __refreshcarts() end
-		classic_refreshlists()
-	end
 
 	if not bbs_mode then
 		-- LOCAL ARCADE LIBRARY MODE

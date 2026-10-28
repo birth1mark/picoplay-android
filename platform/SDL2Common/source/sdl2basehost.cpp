@@ -281,9 +281,12 @@ void postFlipFunction(){
     SDL_UnlockTexture(texture);
 #if defined(__ANDROID__)
     updateAndroidLayout();
-    drawAndroidOverlay();
 #endif
     SDL_RenderCopyEx(renderer, texture, &SrcR, &DestR, textureAngle, NULL, flip);
+
+#if defined(__ANDROID__)
+    drawAndroidOverlay();
+#endif
 
     SDL_RenderPresent(renderer);
 }
@@ -411,6 +414,12 @@ void Host::setPlatformParams(
 
 
 void Host::oneTimeSetup(Audio* audio){
+#if defined(__ANDROID__)
+    SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0");
+    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+    SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
+    SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");
+#endif
 #if defined(__PS4__) || defined(__ORBIS__)
     uint32_t initFlags = SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK | SDL_INIT_TIMER | SDL_INIT_EVENTS;
 #else
@@ -448,6 +457,10 @@ void Host::oneTimeSetup(Audio* audio){
         quit = 1;
         return;
     }
+
+#if defined(__ANDROID__)
+    updateAndroidLayout();
+#endif
 
     texture = SDL_CreateTexture(renderer, _pixelFormat, SDL_TEXTUREACCESS_STREAMING, PicoScreenWidth, PicoScreenHeight);
     if (!texture)

@@ -22,6 +22,7 @@ extern uint8_t currKDown;
 extern uint8_t currKHeld;
 extern bool stretchKeyPressed;
 extern SDL_Rect DestR;
+extern SDL_Renderer *renderer;
 
 extern bool g_androidShowTouchControls;
 extern uint8_t g_androidTouchHeldMask;
@@ -32,16 +33,11 @@ extern SDL_Rect g_btnMenuRect;
 extern SDL_Rect g_btnImportRect;
 extern SDL_Rect g_btnScaleRect;
 
-struct TouchPoint {
-    SDL_FingerID id;
-    int x;
-    int y;
-    bool active;
-};
-
-static TouchPoint s_touches[10] = {};
 static uint8_t s_prevCombinedHeld = 0;
 static uint8_t s_joyHeldMask = 0;
+static bool s_prevMenuTap = false;
+static bool s_prevImportTap = false;
+static bool s_prevScaleTap = false;
 
 static void triggerAndroidImportPicker() {
     JNIEnv* env = (JNIEnv*)SDL_AndroidGetJNIEnv();
@@ -58,39 +54,9 @@ static void triggerAndroidImportPicker() {
 }
 
 static bool pointInExpandedRect(int px, int py, const SDL_Rect& r, int pad) {
+    if (r.w <= 0 || r.h <= 0) return false;
     return (px >= r.x - pad && px <= r.x + r.w + pad &&
             py >= r.y - pad && py <= r.y + r.h + pad);
-}
-
-static uint8_t evaluateTouchButtons() {
-    if (!g_androidShowTouchControls) return 0;
-    uint8_t mask = 0;
-
-    int dpadCx = g_dpadRect.x + g_dpadRect.w / 2;
-    int dpadCy = g_dpadRect.y + g_dpadRect.h / 2;
-    int deadzone = g_dpadRect.w / 9;
-
-    for (int i = 0; i < 10; i++) {
-        if (!s_touches[i].active) continue;
-        int tx = s_touches[i].x;
-        int ty = s_touches[i].y;
-
-        if (pointInExpandedRect(tx, ty, g_dpadRect, 24)) {
-            int dx = tx - dpadCx;
-            int dy = ty - dpadCy;
-            if (dx < -deadzone) mask |= P8_KEY_LEFT;
-            if (dx >  deadzone) mask |= P8_KEY_RIGHT;
-            if (dy < -deadzone) mask |= P8_KEY_UP;
-            if (dy >  deadzone) mask |= P8_KEY_DOWN;
-        }
-        if (pointInExpandedRect(tx, ty, g_btnORect, 18)) {
-            mask |= P8_KEY_O;
-        }
-        if (pointInExpandedRect(tx, ty, g_btnXRect, 18)) {
-            mask |= P8_KEY_X;
-        }
-    }
-    return mask;
 }
 
 Host::Host(int windowWidth, int windowHeight)
@@ -117,8 +83,8 @@ Host::Host(int windowWidth, int windowHeight)
     uint32_t sdlRendererFlags = SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC;
     uint32_t sdlPixelFormat = SDL_PIXELFORMAT_ARGB8888;
 
-    if (windowWidth == 0) windowWidth = 1080;
-    if (windowHeight == 0) windowHeight = 2400;
+    if (windowWidth <= 0) windowWidth = 1080;
+    if (windowHeight <= 0) windowHeight = 2400;
 
     setPlatformParams(
         windowWidth,
@@ -135,6 +101,7 @@ Host::Host(int windowWidth, int windowHeight)
 InputState_t Host::scanInput() {
     uint8_t kDown = 0;
     uint8_t mouseBtnState = 0;
+    int mouseX = 0, mouseY = 0;
     stretchKeyPressed = false;
     SDL_Event event;
 
@@ -151,61 +118,12 @@ InputState_t Host::scanInput() {
                 }
                 break;
 
-            case SDL_FINGERDOWN: {
+            case SDL_FINGERDOWN:
                 g_androidShowTouchControls = true;
-                int fx = (int)(event.tfinger.x * _windowWidth);
-                int fy = (int)(event.tfinger.y * _windowHeight);
-
-                if (pointInExpandedRect(fx, fy, g_btnMenuRect, 8)) {
-                    kDown |= P8_KEY_PAUSE;
-                    break;
-                }
-                if (pointInExpandedRect(fx, fy, g_btnImportRect, 8)) {
-                    triggerAndroidImportPicker();
-                    break;
-                }
-                if (pointInExpandedRect(fx, fy, g_btnScaleRect, 8)) {
-                    stretchKeyPressed = true;
-                    break;
-                }
-
-                for (int i = 0; i < 10; i++) {
-                    if (!s_touches[i].active) {
-                        s_touches[i].id = event.tfinger.fingerId;
-                        s_touches[i].x = fx;
-                        s_touches[i].y = fy;
-                        s_touches[i].active = true;
-                        break;
-                    }
-                }
                 break;
-            }
-
-            case SDL_FINGERMOTION: {
-                int fx = (int)(event.tfinger.x * _windowWidth);
-                int fy = (int)(event.tfinger.y * _windowHeight);
-                for (int i = 0; i < 10; i++) {
-                    if (s_touches[i].active && s_touches[i].id == event.tfinger.fingerId) {
-                        s_touches[i].x = fx;
-                        s_touches[i].y = fy;
-                        break;
-                    }
-                }
-                break;
-            }
-
-            case SDL_FINGERUP: {
-                for (int i = 0; i < 10; i++) {
-                    if (s_touches[i].active && s_touches[i].id == event.tfinger.fingerId) {
-                        s_touches[i].active = false;
-                        break;
-                    }
-                }
-                break;
-            }
 
             case SDL_KEYDOWN:
-                if (event.key.keysym.sym == SDLK_AC_BACK || event.key.keysym.sym == SDLK_ESCAPE || event.key.keysym.sym == SDLK_RETURN) {
+                if (event.key.keysym.sym == SDLK_AC_BACK || event.key.keysym.sym == SDLK_ESCAPE) {
                     kDown |= P8_KEY_PAUSE;
                 } else {
                     g_androidShowTouchControls = false;
@@ -253,39 +171,103 @@ InputState_t Host::scanInput() {
                 break;
 
             case SDL_JOYAXISMOTION:
+                // Only process primary analog stick axes (0 = X, 1 = Y) with generous deadzone (16000)
                 if (event.jaxis.axis == 0) {
                     s_joyHeldMask &= ~(P8_KEY_LEFT | P8_KEY_RIGHT);
-                    if (event.jaxis.value < -12000) { g_androidShowTouchControls = false; s_joyHeldMask |= P8_KEY_LEFT; }
-                    else if (event.jaxis.value > 12000) { g_androidShowTouchControls = false; s_joyHeldMask |= P8_KEY_RIGHT; }
+                    if (event.jaxis.value < -16000) { g_androidShowTouchControls = false; s_joyHeldMask |= P8_KEY_LEFT; }
+                    else if (event.jaxis.value > 16000) { g_androidShowTouchControls = false; s_joyHeldMask |= P8_KEY_RIGHT; }
                 } else if (event.jaxis.axis == 1) {
                     s_joyHeldMask &= ~(P8_KEY_UP | P8_KEY_DOWN);
-                    if (event.jaxis.value < -12000) { g_androidShowTouchControls = false; s_joyHeldMask |= P8_KEY_UP; }
-                    else if (event.jaxis.value > 12000) { g_androidShowTouchControls = false; s_joyHeldMask |= P8_KEY_DOWN; }
+                    if (event.jaxis.value < -16000) { g_androidShowTouchControls = false; s_joyHeldMask |= P8_KEY_UP; }
+                    else if (event.jaxis.value > 16000) { g_androidShowTouchControls = false; s_joyHeldMask |= P8_KEY_DOWN; }
                 }
                 break;
         }
     }
 
-    g_androidTouchHeldMask = evaluateTouchButtons();
+    // Direct multi-touch evaluation from SDL2's live active finger table (zero ghost touches!)
+    uint8_t touchMask = 0;
+    bool menuTapped = false;
+    bool importTapped = false;
+    bool scaleTapped = false;
+
+    if (g_androidShowTouchControls) {
+        int numTouchDevs = SDL_GetNumTouchDevices();
+        for (int d = 0; d < numTouchDevs; d++) {
+            SDL_TouchID tid = SDL_GetTouchDevice(d);
+            int numFingers = SDL_GetNumTouchFingers(tid);
+            for (int f = 0; f < numFingers; f++) {
+                SDL_Finger* finger = SDL_GetTouchFinger(tid, f);
+                if (!finger) continue;
+                int tx = (int)(finger->x * _windowWidth);
+                int ty = (int)(finger->y * _windowHeight);
+
+                // Top menu pills
+                if (pointInExpandedRect(tx, ty, g_btnMenuRect, 8)) {
+                    menuTapped = true;
+                } else if (pointInExpandedRect(tx, ty, g_btnImportRect, 8)) {
+                    importTapped = true;
+                } else if (pointInExpandedRect(tx, ty, g_btnScaleRect, 8)) {
+                    scaleTapped = true;
+                }
+
+                // D-Pad
+                if (pointInExpandedRect(tx, ty, g_dpadRect, 20)) {
+                    int dpadCx = g_dpadRect.x + g_dpadRect.w / 2;
+                    int dpadCy = g_dpadRect.y + g_dpadRect.h / 2;
+                    int deadzone = g_dpadRect.w / 8;
+                    int dx = tx - dpadCx;
+                    int dy = ty - dpadCy;
+                    if (dx < -deadzone) touchMask |= P8_KEY_LEFT;
+                    if (dx >  deadzone) touchMask |= P8_KEY_RIGHT;
+                    if (dy < -deadzone) touchMask |= P8_KEY_UP;
+                    if (dy >  deadzone) touchMask |= P8_KEY_DOWN;
+                }
+
+                // Action Buttons
+                if (pointInExpandedRect(tx, ty, g_btnORect, 16)) {
+                    touchMask |= P8_KEY_O;
+                }
+                if (pointInExpandedRect(tx, ty, g_btnXRect, 16)) {
+                    touchMask |= P8_KEY_X;
+                }
+
+                // Virtual mouse inside PICO-8 screen
+                if (DestR.w > 0 && DestR.h > 0 &&
+                    tx >= DestR.x && tx < DestR.x + DestR.w &&
+                    ty >= DestR.y && ty < DestR.y + DestR.h) {
+                    float sx = DestR.w / 128.0f;
+                    float sy = DestR.h / 128.0f;
+                    mouseX = (int)((tx - DestR.x) / sx);
+                    mouseY = (int)((ty - DestR.y) / sy);
+                    mouseBtnState = 1;
+                }
+            }
+        }
+    }
+
+    // Top button edge detection (fires only once per tap)
+    if (menuTapped && !s_prevMenuTap) {
+        kDown |= P8_KEY_PAUSE;
+    }
+    s_prevMenuTap = menuTapped;
+
+    if (importTapped && !s_prevImportTap) {
+        triggerAndroidImportPicker();
+    }
+    s_prevImportTap = importTapped;
+
+    if (scaleTapped && !s_prevScaleTap) {
+        stretchKeyPressed = true;
+    }
+    s_prevScaleTap = scaleTapped;
+
+    g_androidTouchHeldMask = touchMask;
     uint8_t combinedHeld = currKHeld | s_joyHeldMask | g_androidTouchHeldMask;
     kDown |= (combinedHeld & ~s_prevCombinedHeld);
     s_prevCombinedHeld = combinedHeld;
 
     changeStretch();
-
-    float effScaleX = (DestR.w > 0) ? (DestR.w / 128.0f) : 1.0f;
-    float effScaleY = (DestR.h > 0) ? (DestR.h / 128.0f) : 1.0f;
-    int mouseX = 0, mouseY = 0;
-    for (int i = 0; i < 10; i++) {
-        if (s_touches[i].active &&
-            s_touches[i].x >= DestR.x && s_touches[i].x < DestR.x + DestR.w &&
-            s_touches[i].y >= DestR.y && s_touches[i].y < DestR.y + DestR.h) {
-            mouseX = (int)((s_touches[i].x - DestR.x) / effScaleX);
-            mouseY = (int)((s_touches[i].y - DestR.y) / effScaleY);
-            mouseBtnState = 1;
-            break;
-        }
-    }
 
     return InputState_t {
         kDown,
