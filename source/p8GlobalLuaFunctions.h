@@ -688,6 +688,7 @@ function __z8_tick()
         __z8_stopped = false -- FIXME: what now?
     elseif not ret then
         printh(tostr(err))
+        if debug and debug.traceback then printh(tostr(debug.traceback(__z8_loop))) end
         -- Return to menu on error
         __loaddefaultcart()
         return -1

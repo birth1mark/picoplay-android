@@ -307,13 +307,6 @@ InputState_t Host::scanInput() {
     if (g_androidShowTouchControls) {
         bool portrait = (_windowHeight >= _windowWidth);
 
-        // Synchronize with SDL touch subsystem to prune any orphaned touch points
-        SDL_TouchID touchDevId = (SDL_GetNumTouchDevices() > 0) ? SDL_GetTouchDevice(0) : 0;
-        int activeTouchCount = touchDevId ? SDL_GetNumTouchFingers(touchDevId) : 0;
-        if (activeTouchCount == 0 && !s_activeFingers.empty()) {
-            s_activeFingers.clear();
-        }
-
         // Permanently fix joystick base to its designated default position (never relocates on tap)
         if (g_stickDefaultBaseX > 0 && g_stickDefaultBaseY > 0) {
             g_stickBaseX = g_stickDefaultBaseX;

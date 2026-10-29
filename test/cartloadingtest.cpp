@@ -13,6 +13,8 @@
 #include <errno.h>
 
 #include "doctest.h"
+#include <iostream>
+#include "stubhost.h"
 #include "../libs/lodepng/lodepng.h"
 
 #include "../source/vm.h"
@@ -575,6 +577,36 @@ string checkCart_wrapper(string cartDirectory, string cart)
 }
 */
 
+
+TEST_CASE("Slipways execution and touch mouse click") {
+    StubHost* host = new StubHost();
+    Vm* vm = new Vm(host);
+    
+    std::string path = "/home/pedro/Projects/picoplay-android/android/app/src/main/assets/carts/slipways.p8.png";
+    Cart* cart = new Cart(path, "");
+    std::cout << "extcmd pos: " << (int)cart->LuaString.find("extcmd") << std::endl;
+    delete cart;
+
+    vm->LoadCart(path, false);
+    vm->vm_run();
+
+    for (int i = 0; i < 60; i++) {
+        vm->Step();
+    }
+    std::cout << "Stepped 60 frames. Bios error: " << vm->GetBiosError() << std::endl;
+
+    // Simulate mouse click on the screen like a touch
+    host->stubMouse(64, 64, 1);
+    for (int i = 0; i < 30; i++) {
+        vm->Step();
+    }
+    std::cout << "After click Bios error: " << vm->GetBiosError() << std::endl;
+
+    CHECK(vm->GetBiosError() == "");
+
+    delete vm;
+    delete host;
+}
 
 TEST_CASE("Pause Menu Normalizes Camera and Palette") {
     Host* host = new Host();

@@ -17,6 +17,9 @@ using namespace std;
 //ATTN: none of these statics are thread safe
 static uint8_t stubCurrKDown;
 static uint8_t stubCurrKHeld;
+static int16_t stubMouseX = 0;
+static int16_t stubMouseY = 0;
+static uint8_t stubMouseBtn = 0;
 static bool stubCurrKBdown = false;
 static std::string stubCurrKBkey = "";
 static std::map<std::string, std::string> stubCartDataStorage;
@@ -25,6 +28,9 @@ static std::map<std::string, std::string> stubCartDataStorage;
 Host::Host(int windowWidth, int windowHeight) { }
 StubHost::StubHost() {
     stubCartDataStorage.clear();
+    stubMouseX = 0;
+    stubMouseY = 0;
+    stubMouseBtn = 0;
 }
 
 
@@ -53,8 +59,14 @@ void StubHost::stubInput(uint8_t kdown, uint8_t kheld) {
     stubCurrKHeld = kheld;
 }
 
+void StubHost::stubMouse(int16_t x, int16_t y, uint8_t btn) {
+    stubMouseX = x;
+    stubMouseY = y;
+    stubMouseBtn = btn;
+}
+
 InputState_t Host::scanInput(){
-    return InputState_t {stubCurrKDown, stubCurrKHeld, 0, 0, 0, stubCurrKBdown, stubCurrKBkey};
+    return InputState_t {stubCurrKDown, stubCurrKHeld, stubMouseX, stubMouseY, stubMouseBtn, stubCurrKBdown, stubCurrKBkey};
 }
 
 bool Host::shouldQuit() {
