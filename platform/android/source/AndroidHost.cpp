@@ -41,6 +41,7 @@ extern int g_stickRadius;
 extern int g_stickNubRadius;
 extern bool g_stickActive;
 static bool s_stickTracked = false;
+static SDL_FingerID s_stickFingerId = -1;
 
 extern int g_btnOCenterX, g_btnOCenterY, g_btnORadius;
 extern int g_btnXCenterX, g_btnXCenterY, g_btnXRadius;
@@ -305,6 +306,29 @@ InputState_t Host::scanInput() {
 
     if (g_androidShowTouchControls) {
         bool portrait = (_windowHeight >= _windowWidth);
+
+        // Synchronize with SDL touch subsystem to prune any orphaned touch points
+        SDL_TouchID touchDevId = (SDL_GetNumTouchDevices() > 0) ? SDL_GetTouchDevice(0) : 0;
+        int activeTouchCount = touchDevId ? SDL_GetNumTouchFingers(touchDevId) : 0;
+        if (activeTouchCount == 0 && !s_activeFingers.empty()) {
+            s_activeFingers.clear();
+        }
+
+        // Permanently fix joystick base to its designated default position (never relocates on tap)
+        if (g_stickDefaultBaseX > 0 && g_stickDefaultBaseY > 0) {
+            g_stickBaseX = g_stickDefaultBaseX;
+            g_stickBaseY = g_stickDefaultBaseY;
+        }
+
+        // If tracked finger was released, stop tracking
+        if (s_stickTracked && s_activeFingers.find(s_stickFingerId) == s_activeFingers.end()) {
+            s_stickTracked = false;
+            s_stickFingerId = -1;
+            g_stickActive = false;
+            g_stickNubX = g_stickBaseX;
+            g_stickNubY = g_stickBaseY;
+        }
+
         for (const auto& kv : s_activeFingers) {
             int tx = kv.second.x;
             int ty = kv.second.y;
@@ -316,21 +340,16 @@ InputState_t Host::scanInput() {
                 continue;
             }
 
-            // Transparent Floating Virtual Joystick (Left Control Zone)
-            bool inLeftZone = portrait ? (tx <= _windowWidth * 50 / 100 && ty > DestR.y + DestR.h)
-                                       : (tx < DestR.x && ty > 60);
-            if (inLeftZone) {
+            // Fixed Virtual Thumb Joystick (Left Control Zone)
+            // A touch starts tracking if touched on or near the joystick (radius * 1.45).
+            // Once tracking, it follows the player's thumb deflection without ever moving the base.
+            bool isStickFinger = (s_stickTracked && kv.first == s_stickFingerId);
+            bool canStartStick = (!s_stickTracked && pointInCircle(tx, ty, g_stickBaseX, g_stickBaseY, g_stickRadius, (int)(g_stickRadius * 0.45f)));
+
+            if (isStickFinger || canStartStick) {
                 if (!s_stickTracked) {
                     s_stickTracked = true;
-                    // Dynamically anchor joystick base around the initial touch point
-                    int minX = g_stickRadius + 10;
-                    int maxX = portrait ? (_windowWidth * 48 / 100) : (DestR.x - g_stickRadius - 10);
-                    int minY = portrait ? (DestR.y + DestR.h + g_stickRadius + 10) : (60 + g_stickRadius);
-                    int maxY = _windowHeight - g_stickRadius - 10;
-                    g_stickBaseX = std::max(minX, std::min(tx, maxX));
-                    g_stickBaseY = std::max(minY, std::min(ty, maxY));
-                    g_stickNubX = g_stickBaseX;
-                    g_stickNubY = g_stickBaseY;
+                    s_stickFingerId = kv.first;
                 }
 
                 float dx = (float)(tx - g_stickBaseX);
@@ -339,7 +358,7 @@ InputState_t Host::scanInput() {
                 stickTouchFound = true;
                 g_stickActive = true;
                 float maxNubDist = (float)g_stickRadius;
-                if (dist > maxNubDist) {
+                if (dist > maxNubDist && dist > 0.001f) {
                     g_stickNubX = g_stickBaseX + (int)(dx / dist * maxNubDist);
                     g_stickNubY = g_stickBaseY + (int)(dy / dist * maxNubDist);
                 } else {
@@ -394,6 +413,7 @@ InputState_t Host::scanInput() {
 
         if (!stickTouchFound) {
             s_stickTracked = false;
+            s_stickFingerId = -1;
             g_stickActive = false;
             if (g_stickDefaultBaseX > 0 && g_stickDefaultBaseY > 0) {
                 g_stickBaseX = g_stickDefaultBaseX;

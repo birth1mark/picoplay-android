@@ -77,7 +77,7 @@ bool audioInitialized = false;
 // Shared touch state updated by AndroidHost.cpp
 bool g_androidShowTouchControls = true;
 uint8_t g_androidTouchHeldMask = 0;
-int g_scaleMode = 0; // 0 = Fit Handheld, 1 = Pixel Perfect, 2 = Fill Width
+int g_scaleMode = 2; // 0 = Fit Handheld, 1 = Pixel Perfect, 2 = Fill Width (Default: MAX edge-to-edge)
 
 // Virtual Transparent Thumb Joystick coordinates
 int g_stickBaseX = 0;
