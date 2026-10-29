@@ -2,8 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     android:installLocation="auto">
 
-    <!-- Network access for BBS Store & Vibrate for tactile feedback -->
-    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Tactile feedback vibration -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- Optional hardware features so it runs on Phones, Tablets, Handhelds (Retroid/Odin), and Android TV -->
