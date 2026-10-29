@@ -1,0 +1,13 @@
+PicoPlay is an open-source, high-performance fantasy console player engineered for Android smartphones, tablets, handhelds, and TV.
+
+Play your own 128x128 8-bit fantasy console cartridges (.p8 and .p8.png) with native 60 FPS performance, low-latency audio, and responsive on-screen controls.
+
+KEY FEATURES:
+• Ergonomic Pocket Touch Gamepad: Directional virtual joystick with cardinal axis gating and tactile circular action buttons.
+• External Gamepad Support: Full auto-detection for Bluetooth and USB gamepads (PlayStation, Xbox, 8BitDo, and retro handhelds). On-screen controls automatically hide upon controller input.
+• Storage Access Framework: Easily import your own cartridges (.p8 and .p8.png) from your device storage, SD Card, or cloud drive.
+• 3 Display Modes: Switch seamlessly between MAX (edge-to-edge), FIT (framed handheld bezel), and 1:1 (pixel-perfect integer scaling).
+• Zero Telemetry: Completely private with zero data collection, no background tracking, and no ads.
+
+LEGAL DISCLAIMER:
+PicoPlay is an independent open-source project based on Fake-08 and SDL2. PicoPlay is not affiliated with, endorsed by, or sponsored by Lexaloffle Games LLP. "PICO-8" is a registered trademark of Lexaloffle Games LLP. This application does not contain proprietary cartridges. Users must provide their own homebrew cartridges.

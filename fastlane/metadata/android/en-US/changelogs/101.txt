@@ -1,0 +1,5 @@
+- Initial release with native 60 FPS C++ engine
+- Ergonomic Pocket Touch Gamepad with anchored thumbstick
+- Full Bluetooth and USB gamepad auto-detection
+- Storage Access Framework cartridge importing
+- 16KB memory page size alignment and Target SDK 35 (Android 15)
