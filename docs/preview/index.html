@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PicoPlay — Obsidian Matte Handheld Console Showcase</title>
+    <style>
+        :root {
+            --bg-body: #0a0c10;
+            --bg-card: #12151c;
+            --border-card: #202634;
+            --accent-green: #00e436;
+            --accent-blue: #29adff;
+            --accent-red: #ff004d;
+            --text-main: #f0f3f8;
+            --text-dim: #8b9bb4;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-body);
+            color: var(--text-main);
+            padding: 32px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        header {
+            text-align: center;
+            max-width: 900px;
+            margin-bottom: 36px;
+        }
+        .badge {
+            display: inline-block;
+            background: rgba(0, 228, 54, 0.15);
+            border: 1px solid var(--accent-green);
+            color: var(--accent-green);
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 14px;
+        }
+        h1 {
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+        p.subtitle {
+            color: var(--text-dim);
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 28px;
+            width: 100%;
+            max-width: 1400px;
+            margin-bottom: 40px;
+        }
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            border-color: #3b465e;
+        }
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-card);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .card-tag {
+            font-size: 12px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.06);
+            color: var(--text-dim);
+        }
+        .card-img-container {
+            background: #080a0e;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 480px;
+        }
+        .card-img-container img {
+            max-height: 580px;
+            max-width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+            object-fit: contain;
+        }
+        .card.wide {
+            grid-column: 1 / -1;
+        }
+        .card.wide .card-img-container {
+            min-height: 380px;
+        }
+        .card.wide img {
+            max-height: 480px;
+        }
+        .card-footer {
+            padding: 14px 20px;
+            font-size: 14px;
+            color: var(--text-dim);
+            line-height: 1.4;
+            border-top: 1px solid var(--border-card);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <span class="badge">Next-Gen Chassis Design</span>
+        <h1>PicoPlay Obsidian Matte Console</h1>
+        <p class="subtitle">Estética inspirada no <strong>Analogue Pocket</strong> e acabamento industrial de luxo em preto acetinado.</p>
+    </header>
+
+    <div class="grid">
+        <!-- 1. Portrait Idle -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">📱 Modo Portrait (Em Repouso)</span>
+                <span class="card-tag">FIT Handheld</span>
+            </div>
+            <div class="card-img-container">
+                <img src="chassis_portrait_idle.png" alt="Chassis Portrait Idle">
+            </div>
+            <div class="card-footer">
+                LED óptico esmeralda, bisel de vidro rebaixado, poços cilíndricos para botões O/X e cúpula usinada para o D-Pad.
+            </div>
+        </div>
+
+        <!-- 2. Portrait Active -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">⚡ Modo Portrait (Em Ação)</span>
+                <span class="card-tag">Toque Ativo</span>
+            </div>
+            <div class="card-img-container">
+                <img src="chassis_portrait_active.png" alt="Chassis Portrait Active">
+            </div>
+            <div class="card-footer">
+                Setas cardinais iluminadas a branco/ciano, manípulo estriado defletido e botão O rebaixado mecanicamente (+4px Y) com brilho vivo.
+            </div>
+        </div>
+
+        <!-- 3. Portrait 1:1 -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">🔍 Escala 1:1 Pixel-Perfect</span>
+                <span class="card-tag">8x (1024px)</span>
+            </div>
+            <div class="card-img-container">
+                <img src="chassis_portrait_mode1.png" alt="Chassis Portrait Mode 1">
+            </div>
+            <div class="card-footer">
+                Tamanho máximo inteiro absoluto com moldura preta minimalista e reflexo de vidro superior.
+            </div>
+        </div>
+
+        <!-- 4. Portrait MAX -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">📐 Escala MAX Edge-to-Edge</span>
+                <span class="card-tag">1080px Largura</span>
+            </div>
+            <div class="card-img-container">
+                <img src="chassis_portrait_mode2.png" alt="Chassis Portrait Mode 2">
+            </div>
+            <div class="card-footer">
+                Preenchimento total de margem a margem com ranhuras de corte mecânico superior e inferior integradas.
+            </div>
+        </div>
+
+        <!-- 5. Landscape -->
+        <div class="card wide">
+            <div class="card-header">
+                <span class="card-title">🎮 Modo Landscape (Ecrã Panorâmico)</span>
+                <span class="card-tag">Dual Deck</span>
+            </div>
+            <div class="card-img-container">
+                <img src="chassis_landscape.png" alt="Chassis Landscape">
+            </div>
+            <div class="card-footer">
+                Ecrã central emoldurado com inscrição debossed "PICOPLAY" no topo, manípulo mecânico à esquerda e botões O/X ergonómicos à direita.
+            </div>
+        </div>
+    </div>
+</body>
+</html>

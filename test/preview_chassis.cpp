@@ -710,6 +710,183 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    bool interactive = false;
+    for (int i = 1; i < argc; i++) {
+        if (std::string(argv[i]) == "--interactive" || std::string(argv[i]) == "-i") {
+            interactive = true;
+        }
+    }
+
+    if (interactive) {
+        _windowWidth = 1080;
+        _windowHeight = 2400;
+        g_scaleMode = 0;
+        updateLayout();
+
+        int winW = 432;
+        int winH = 960;
+        SDL_Window* win = SDL_CreateWindow("PicoPlay - Obsidian Matte Console (Interactive Preview)",
+                                           SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                                           winW, winH, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+        if (!win) {
+            std::cerr << "Window creation failed: " << SDL_GetError() << std::endl;
+            return 1;
+        }
+
+        SDL_Renderer* r = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+        if (!r) {
+            r = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
+        }
+        SDL_RenderSetLogicalSize(r, _windowWidth, _windowHeight);
+
+        bool running = true;
+        bool isMouseDown = false;
+        bool portrait = true;
+
+        while (running) {
+            SDL_Event ev;
+            while (SDL_PollEvent(&ev)) {
+                if (ev.type == SDL_QUIT) {
+                    running = false;
+                } else if (ev.type == SDL_KEYDOWN) {
+                    if (ev.key.keysym.sym == SDLK_ESCAPE || ev.key.keysym.sym == SDLK_q) {
+                        running = false;
+                    } else if (ev.key.keysym.sym == SDLK_SPACE) {
+                        portrait = !portrait;
+                        if (portrait) {
+                            _windowWidth = 1080;
+                            _windowHeight = 2400;
+                            SDL_SetWindowSize(win, 432, 960);
+                        } else {
+                            _windowWidth = 2400;
+                            _windowHeight = 1080;
+                            SDL_SetWindowSize(win, 960, 432);
+                        }
+                        SDL_RenderSetLogicalSize(r, _windowWidth, _windowHeight);
+                        updateLayout();
+                    } else if (ev.key.keysym.sym == SDLK_TAB || ev.key.keysym.sym == SDLK_s) {
+                        g_scaleMode = (g_scaleMode + 1) % 3;
+                        updateLayout();
+                    } else if (ev.key.keysym.sym == SDLK_LEFT || ev.key.keysym.sym == SDLK_a) {
+                        g_androidTouchHeldMask |= P8_KEY_LEFT;
+                    } else if (ev.key.keysym.sym == SDLK_RIGHT || ev.key.keysym.sym == SDLK_d) {
+                        g_androidTouchHeldMask |= P8_KEY_RIGHT;
+                    } else if (ev.key.keysym.sym == SDLK_UP || ev.key.keysym.sym == SDLK_w) {
+                        g_androidTouchHeldMask |= P8_KEY_UP;
+                    } else if (ev.key.keysym.sym == SDLK_DOWN || ev.key.keysym.sym == SDLK_x) {
+                        g_androidTouchHeldMask |= P8_KEY_DOWN;
+                    } else if (ev.key.keysym.sym == SDLK_z || ev.key.keysym.sym == SDLK_c || ev.key.keysym.sym == SDLK_n) {
+                        g_androidTouchHeldMask |= P8_KEY_O;
+                    } else if (ev.key.keysym.sym == SDLK_x || ev.key.keysym.sym == SDLK_v || ev.key.keysym.sym == SDLK_m) {
+                        g_androidTouchHeldMask |= P8_KEY_X;
+                    }
+                } else if (ev.type == SDL_KEYUP) {
+                    if (ev.key.keysym.sym == SDLK_LEFT || ev.key.keysym.sym == SDLK_a) {
+                        g_androidTouchHeldMask &= ~P8_KEY_LEFT;
+                    } else if (ev.key.keysym.sym == SDLK_RIGHT || ev.key.keysym.sym == SDLK_d) {
+                        g_androidTouchHeldMask &= ~P8_KEY_RIGHT;
+                    } else if (ev.key.keysym.sym == SDLK_UP || ev.key.keysym.sym == SDLK_w) {
+                        g_androidTouchHeldMask &= ~P8_KEY_UP;
+                    } else if (ev.key.keysym.sym == SDLK_DOWN || ev.key.keysym.sym == SDLK_x) {
+                        g_androidTouchHeldMask &= ~P8_KEY_DOWN;
+                    } else if (ev.key.keysym.sym == SDLK_z || ev.key.keysym.sym == SDLK_c || ev.key.keysym.sym == SDLK_n) {
+                        g_androidTouchHeldMask &= ~P8_KEY_O;
+                    } else if (ev.key.keysym.sym == SDLK_x || ev.key.keysym.sym == SDLK_v || ev.key.keysym.sym == SDLK_m) {
+                        g_androidTouchHeldMask &= ~P8_KEY_X;
+                    }
+                } else if (ev.type == SDL_MOUSEBUTTONDOWN) {
+                    isMouseDown = true;
+                    float fmx = 0.0f, fmy = 0.0f;
+                    SDL_RenderWindowToLogical(r, ev.button.x, ev.button.y, &fmx, &fmy);
+                    int mx = (int)fmx, my = (int)fmy;
+
+                    // Pill hit tests
+                    auto pointInRect = [](int px, int py, const SDL_Rect& rect) {
+                        return (px >= rect.x && px <= rect.x + rect.w && py >= rect.y && py <= rect.y + rect.h);
+                    };
+
+                    if (pointInRect(mx, my, g_btnScaleRect)) {
+                        g_scaleMode = (g_scaleMode + 1) % 3;
+                        updateLayout();
+                    } else if (pointInRect(mx, my, g_btnMenuRect)) {
+                        std::cout << "[MENU] Pressed!" << std::endl;
+                    } else if (pointInRect(mx, my, g_btnImportRect)) {
+                        std::cout << "[+CART] Pressed!" << std::endl;
+                    }
+
+                    // Stick hit test
+                    float sdx = (float)(mx - g_stickBaseX);
+                    float sdy = (float)(my - g_stickBaseY);
+                    if (sqrtf(sdx * sdx + sdy * sdy) <= g_stickRadius * 1.5f) {
+                        g_stickActive = true;
+                        g_stickNubX = mx;
+                        g_stickNubY = my;
+                    }
+
+                    // Button O hit test
+                    float odx = (float)(mx - g_btnOCenterX);
+                    float ody = (float)(my - g_btnOCenterY);
+                    if (sqrtf(odx * odx + ody * ody) <= g_btnORadius * 1.3f) {
+                        g_androidTouchHeldMask |= P8_KEY_O;
+                    }
+
+                    // Button X hit test
+                    float xdx = (float)(mx - g_btnXCenterX);
+                    float xdy = (float)(my - g_btnXCenterY);
+                    if (sqrtf(xdx * xdx + xdy * xdy) <= g_btnXRadius * 1.3f) {
+                        g_androidTouchHeldMask |= P8_KEY_X;
+                    }
+                } else if (ev.type == SDL_MOUSEMOTION) {
+                    if (isMouseDown && g_stickActive) {
+                        float fmx = 0.0f, fmy = 0.0f;
+                        SDL_RenderWindowToLogical(r, ev.motion.x, ev.motion.y, &fmx, &fmy);
+                        int mx = (int)fmx, my = (int)fmy;
+                        float dx = (float)(mx - g_stickBaseX);
+                        float dy = (float)(my - g_stickBaseY);
+                        float dist = sqrtf(dx * dx + dy * dy);
+                        if (dist > g_stickRadius && dist > 0.001f) {
+                            g_stickNubX = g_stickBaseX + (int)(dx / dist * g_stickRadius);
+                            g_stickNubY = g_stickBaseY + (int)(dy / dist * g_stickRadius);
+                        } else {
+                            g_stickNubX = mx;
+                            g_stickNubY = my;
+                        }
+
+                        g_androidTouchHeldMask &= ~(P8_KEY_LEFT | P8_KEY_RIGHT | P8_KEY_UP | P8_KEY_DOWN);
+                        if (dist > g_stickRadius * 0.25f) {
+                            if (fabsf(dx) >= dist * 0.38f) {
+                                if (dx < 0) g_androidTouchHeldMask |= P8_KEY_LEFT;
+                                else        g_androidTouchHeldMask |= P8_KEY_RIGHT;
+                            }
+                            if (fabsf(dy) >= dist * 0.38f) {
+                                if (dy < 0) g_androidTouchHeldMask |= P8_KEY_UP;
+                                else        g_androidTouchHeldMask |= P8_KEY_DOWN;
+                            }
+                        }
+                    }
+                } else if (ev.type == SDL_MOUSEBUTTONUP) {
+                    isMouseDown = false;
+                    g_stickActive = false;
+                    g_stickNubX = g_stickBaseX;
+                    g_stickNubY = g_stickBaseY;
+                    g_androidTouchHeldMask &= ~(P8_KEY_LEFT | P8_KEY_RIGHT | P8_KEY_UP | P8_KEY_DOWN | P8_KEY_O | P8_KEY_X);
+                }
+            }
+
+            SDL_SetRenderDrawColor(r, 15, 18, 23, 255);
+            SDL_RenderClear(r);
+            drawMockPicoScreen(r);
+            drawConsoleChassis(r);
+            SDL_RenderPresent(r);
+            SDL_Delay(16);
+        }
+
+        SDL_DestroyRenderer(r);
+        SDL_DestroyWindow(win);
+        SDL_Quit();
+        return 0;
+    }
+
     std::string outDir = "/home/pedro/.gemini/antigravity-cli/brain/e5faaf39-9f30-404d-b05e-db381fb47f50";
     if (argc > 1) {
         outDir = argv[1];
