@@ -24,3 +24,7 @@ android/app/jni/SDL2/
 *.idsig
 .aider*
 platform/SDL2Desktop/build/
+test/build/
+test/preview_chassis
+test/*.a
+bass.wav

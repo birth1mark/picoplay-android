@@ -100,7 +100,7 @@ SDL_Rect g_btnImportRect = {0, 0, 0, 0};
 SDL_Rect g_btnScaleRect = {0, 0, 0, 0};
 
 // Geometry rendering helpers with alpha blending (batched for performance)
-static void renderFilledCircle(SDL_Renderer* r, int cx, int cy, int radius, Uint8 R, Uint8 G, Uint8 B, Uint8 A) {
+static void renderFilledCircle(SDL_Renderer* r, int cx, int cy, int radius, Uint8 R, Uint8 G, Uint8 B, Uint8 A = 255) {
     if (radius <= 0) return;
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(r, R, G, B, A);
@@ -113,7 +113,7 @@ static void renderFilledCircle(SDL_Renderer* r, int cx, int cy, int radius, Uint
     SDL_RenderFillRects(r, rects.data(), (int)rects.size());
 }
 
-static void renderCircleRing(SDL_Renderer* r, int cx, int cy, int radius, int thickness, Uint8 R, Uint8 G, Uint8 B, Uint8 A) {
+static void renderCircleRing(SDL_Renderer* r, int cx, int cy, int radius, int thickness, Uint8 R, Uint8 G, Uint8 B, Uint8 A = 255) {
     if (radius <= 0 || thickness <= 0) return;
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(r, R, G, B, A);
@@ -147,34 +147,85 @@ static void renderCircleRing(SDL_Renderer* r, int cx, int cy, int radius, int th
     }
 }
 
+static void renderRoundedRect(SDL_Renderer* r, const SDL_Rect& rect, int radius, Uint8 R, Uint8 G, Uint8 B, Uint8 A = 255) {
+    if (rect.w <= 0 || rect.h <= 0) return;
+    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(r, R, G, B, A);
+    int rad = std::min(radius, std::min(rect.w / 2, rect.h / 2));
+    if (rad <= 0) {
+        SDL_RenderFillRect(r, &rect);
+        return;
+    }
+    SDL_Rect mid = {rect.x, rect.y + rad, rect.w, rect.h - rad * 2};
+    SDL_RenderFillRect(r, &mid);
+    SDL_Rect top = {rect.x + rad, rect.y, rect.w - rad * 2, rad};
+    SDL_Rect bot = {rect.x + rad, rect.y + rect.h - rad, rect.w - rad * 2, rad};
+    SDL_RenderFillRect(r, &top);
+    SDL_RenderFillRect(r, &bot);
+    renderFilledCircle(r, rect.x + rad, rect.y + rad, rad, R, G, B, A);
+    renderFilledCircle(r, rect.x + rect.w - rad - 1, rect.y + rad, rad, R, G, B, A);
+    renderFilledCircle(r, rect.x + rad, rect.y + rect.h - rad - 1, rad, R, G, B, A);
+    renderFilledCircle(r, rect.x + rect.w - rad - 1, rect.y + rect.h - rad - 1, rad, R, G, B, A);
+}
+
+// Draw a filled triangle for D-pad directional arrows
+static void renderFilledTriangle(SDL_Renderer* r, int x0, int y0, int x1, int y1, int x2, int y2, Uint8 R, Uint8 G, Uint8 B, Uint8 A = 255) {
+    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(r, R, G, B, A);
+    if (y0 > y1) { std::swap(x0, x1); std::swap(y0, y1); }
+    if (y0 > y2) { std::swap(x0, x2); std::swap(y0, y2); }
+    if (y1 > y2) { std::swap(x1, x2); std::swap(y1, y2); }
+
+    int total_h = y2 - y0;
+    if (total_h == 0) return;
+
+    for (int y = y0; y <= y2; y++) {
+        bool second_half = y > y1 || y1 == y0;
+        int segment_h = second_half ? (y2 - y1) : (y1 - y0);
+        if (segment_h == 0) continue;
+        float alpha = (float)(y - y0) / total_h;
+        float beta  = (float)(y - (second_half ? y1 : y0)) / segment_h;
+        int ax = x0 + (int)((x2 - x0) * alpha);
+        int bx = second_half ? (x1 + (int)((x2 - x1) * beta)) : (x0 + (int)((x1 - x0) * beta));
+        if (ax > bx) std::swap(ax, bx);
+        SDL_RenderDrawLine(r, ax, y, bx, y);
+    }
+}
+
 // Compact 3x5 pixel font for retro touch button labels
 static uint16_t getGlyph3x5(char c) {
     switch (c) {
-        case 'A': return 0b010101111101101;
+        case 'A': return 0b111101111101101;
         case 'B': return 0b110101110101110;
-        case 'C': return 0b011100100100011;
+        case 'C': return 0b111100100100111;
         case 'D': return 0b110101101101110;
-        case 'E': return 0b111100110100111;
+        case 'E': return 0b111100111100111;
         case 'F': return 0b111100110100100;
         case 'G': return 0b011100101101011;
         case 'H': return 0b101101111101101;
         case 'I': return 0b111010010010111;
         case 'K': return 0b101101110101101;
         case 'L': return 0b100100100100111;
-        case 'M': return 0b101111111101101;
-        case 'N': return 0b111101101101101;
-        case 'O': return 0b010101101101010;
-        case 'P': return 0b110101110100100;
+        case 'M': return 0b101111101101101;
+        case 'N': return 0b101110101011101;
+        case 'O': return 0b111101101101111;
+        case 'P': return 0b111101111100100;
         case 'R': return 0b110101110101101;
         case 'S': return 0b011100010001110;
         case 'T': return 0b111010010010010;
         case 'U': return 0b101101101101111;
         case 'V': return 0b101101101101010;
         case 'X': return 0b101101010101101;
-        case 'Y': return 0b101101010010010;
+        case 'Y': return 0b101101111010010;
+        case '0': return 0b111101101101111;
         case '1': return 0b010110010010111;
+        case '2': return 0b111001111100111;
+        case '3': return 0b111001111001111;
+        case '8': return 0b111101111101111;
         case ':': return 0b000010000010000;
         case '+': return 0b000010111010000;
+        case '-': return 0b000000111000000;
+        case ' ': return 0b000000000000000;
         default:  return 0;
     }
 }
@@ -202,6 +253,31 @@ static void drawPixelText(SDL_Renderer* r, const char* text, int cx, int cy, int
     }
     if (!pxs.empty()) {
         SDL_RenderFillRects(r, pxs.data(), (int)pxs.size());
+    }
+}
+
+// Dedicated High-Fidelity Action Button Glyphs
+static void drawBoldButtonOGlyph(SDL_Renderer* r, int cx, int cy, int radius, Uint8 R, Uint8 G, Uint8 B, Uint8 A = 255) {
+    int glyphR = radius * 38 / 100;
+    int thick = std::max(3, radius * 14 / 100);
+    renderCircleRing(r, cx, cy + 2, glyphR, thick, 0, 0, 0, 160);
+    renderCircleRing(r, cx, cy, glyphR, thick, R, G, B, A);
+}
+
+static void drawBoldButtonXGlyph(SDL_Renderer* r, int cx, int cy, int radius, Uint8 R, Uint8 G, Uint8 B, Uint8 A = 255) {
+    int armLen = radius * 35 / 100;
+    int thick = std::max(3, radius * 13 / 100);
+
+    SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(r, 0, 0, 0, 160);
+    for (int t = -thick / 2; t <= thick / 2; t++) {
+        SDL_RenderDrawLine(r, cx - armLen + t, cy - armLen + 2, cx + armLen + t, cy + armLen + 2);
+        SDL_RenderDrawLine(r, cx - armLen + t, cy + armLen + 2, cx + armLen + t, cy - armLen + 2);
+    }
+    SDL_SetRenderDrawColor(r, R, G, B, A);
+    for (int t = -thick / 2; t <= thick / 2; t++) {
+        SDL_RenderDrawLine(r, cx - armLen + t, cy - armLen, cx + armLen + t, cy + armLen);
+        SDL_RenderDrawLine(r, cx - armLen + t, cy + armLen, cx + armLen + t, cy - armLen);
     }
 }
 
@@ -363,71 +439,299 @@ static void drawAndroidOverlay() {
         updateAndroidLayout();
     }
 
-    // 1. Draw retro handheld bezel around DestR (if in mode 0 or 1 and margin permits)
-    if (g_scaleMode != 2 && DestR.x >= 6) {
-        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-        SDL_Rect bezel = {DestR.x - 6, DestR.y - 6, DestR.w + 12, DestR.h + 12};
-        SDL_SetRenderDrawColor(renderer, 29, 43, 83, 255);
-        SDL_RenderDrawRect(renderer, &bezel);
-        SDL_Rect bezel2 = {DestR.x - 3, DestR.y - 3, DestR.w + 6, DestR.h + 6};
-        SDL_SetRenderDrawColor(renderer, 95, 87, 79, 255);
-        SDL_RenderDrawRect(renderer, &bezel2);
+    bool portrait = (_windowHeight >= _windowWidth);
+    int controlDeckY = portrait ? (_windowHeight * 55 / 100) : 0;
+
+    // 1. CHASSIS OUTER BEVEL & CNC CHAMFER
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    // Subtle top/left edge CNC highlight
+    SDL_SetRenderDrawColor(renderer, 48, 56, 72, 160);
+    SDL_RenderDrawLine(renderer, 0, 0, _windowWidth - 1, 0);
+    SDL_RenderDrawLine(renderer, 0, 1, _windowWidth - 1, 1);
+    SDL_RenderDrawLine(renderer, 0, 0, 0, _windowHeight - 1);
+    SDL_RenderDrawLine(renderer, 1, 0, 1, _windowHeight - 1);
+
+    // Subtle bottom/right edge CNC shadow
+    SDL_SetRenderDrawColor(renderer, 6, 8, 11, 240);
+    SDL_RenderDrawLine(renderer, 0, _windowHeight - 1, _windowWidth - 1, _windowHeight - 1);
+    SDL_RenderDrawLine(renderer, 0, _windowHeight - 2, _windowWidth - 1, _windowHeight - 2);
+    SDL_RenderDrawLine(renderer, _windowWidth - 1, 0, _windowWidth - 1, _windowHeight - 1);
+    SDL_RenderDrawLine(renderer, _windowWidth - 2, 0, _windowWidth - 2, _windowHeight - 1);
+
+    // 2. HARDWARE PARTING LINE / SEAM
+    if (portrait) {
+        int seamY = controlDeckY - 14;
+        // Dark groove
+        SDL_SetRenderDrawColor(renderer, 7, 9, 13, 255);
+        SDL_RenderDrawLine(renderer, 12, seamY, _windowWidth - 13, seamY);
+        // Bevel highlight below groove
+        SDL_SetRenderDrawColor(renderer, 34, 40, 52, 170);
+        SDL_RenderDrawLine(renderer, 12, seamY + 1, _windowWidth - 13, seamY + 1);
+    } else {
+        int leftSeamX = DestR.x - 14;
+        int rightSeamX = DestR.x + DestR.w + 14;
+        SDL_SetRenderDrawColor(renderer, 7, 9, 13, 255);
+        SDL_RenderDrawLine(renderer, leftSeamX, 10, leftSeamX, _windowHeight - 11);
+        SDL_RenderDrawLine(renderer, rightSeamX, 10, rightSeamX, _windowHeight - 11);
+        SDL_SetRenderDrawColor(renderer, 34, 40, 52, 170);
+        SDL_RenderDrawLine(renderer, leftSeamX + 1, 10, leftSeamX + 1, _windowHeight - 11);
+        SDL_RenderDrawLine(renderer, rightSeamX + 1, 10, rightSeamX + 1, _windowHeight - 11);
+    }
+
+    // 3. DISPLAY FRAME & LAMINATED GLASS BEZEL
+    if (DestR.x >= 6) {
+        // Outer chamfered bezel
+        SDL_Rect outerBezel = {DestR.x - 12, DestR.y - 12, DestR.w + 24, DestR.h + 24};
+        // Top/left highlight
+        SDL_SetRenderDrawColor(renderer, 38, 46, 60, 255);
+        SDL_RenderDrawLine(renderer, outerBezel.x, outerBezel.y, outerBezel.x + outerBezel.w - 1, outerBezel.y);
+        SDL_RenderDrawLine(renderer, outerBezel.x, outerBezel.y + 1, outerBezel.x + outerBezel.w - 2, outerBezel.y + 1);
+        SDL_RenderDrawLine(renderer, outerBezel.x, outerBezel.y, outerBezel.x, outerBezel.y + outerBezel.h - 1);
+        SDL_RenderDrawLine(renderer, outerBezel.x + 1, outerBezel.y, outerBezel.x + 1, outerBezel.y + outerBezel.h - 2);
+
+        // Bottom/right shadow
+        SDL_SetRenderDrawColor(renderer, 6, 8, 11, 255);
+        SDL_RenderDrawLine(renderer, outerBezel.x, outerBezel.y + outerBezel.h - 1, outerBezel.x + outerBezel.w - 1, outerBezel.y + outerBezel.h - 1);
+        SDL_RenderDrawLine(renderer, outerBezel.x + 1, outerBezel.y + outerBezel.h - 2, outerBezel.x + outerBezel.w - 1, outerBezel.y + outerBezel.h - 2);
+        SDL_RenderDrawLine(renderer, outerBezel.x + outerBezel.w - 1, outerBezel.y, outerBezel.x + outerBezel.w - 1, outerBezel.y + outerBezel.h - 1);
+        SDL_RenderDrawLine(renderer, outerBezel.x + outerBezel.w - 2, outerBezel.y + 1, outerBezel.x + outerBezel.w - 2, outerBezel.y + outerBezel.h - 1);
+
+        // Piano black inner glass frame
+        for (int i = 1; i <= 8; i++) {
+            SDL_Rect glass = {DestR.x - i, DestR.y - i, DestR.w + i * 2, DestR.h + i * 2};
+            SDL_SetRenderDrawColor(renderer, 7, 9, 12, 255);
+            SDL_RenderDrawRect(renderer, &glass);
+        }
+
+        // Laminated glass top glare reflection line
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 48);
+        SDL_RenderDrawLine(renderer, DestR.x - 4, DestR.y - 4, DestR.x + DestR.w + 3, DestR.y - 4);
+    } else {
+        // MAX Edge-to-edge mode: Top and Bottom precision integration seams
+        SDL_SetRenderDrawColor(renderer, 7, 9, 12, 255);
+        SDL_RenderDrawLine(renderer, 0, DestR.y - 1, _windowWidth - 1, DestR.y - 1);
+        SDL_RenderDrawLine(renderer, 0, DestR.y + DestR.h, _windowWidth - 1, DestR.y + DestR.h);
+        SDL_SetRenderDrawColor(renderer, 34, 40, 52, 160);
+        SDL_RenderDrawLine(renderer, 0, DestR.y - 2, _windowWidth - 1, DestR.y - 2);
+        SDL_RenderDrawLine(renderer, 0, DestR.y + DestR.h + 1, _windowWidth - 1, DestR.y + DestR.h + 1);
+    }
+
+    // 4. HARDWARE OPTICAL POWER / BATTERY LED
+    int ledX = portrait ? (g_btnMenuRect.x + 8) : 24;
+    int ledY = portrait ? (g_btnMenuRect.y - 22) : (g_btnMenuRect.y - 14);
+    if (ledY < 14) ledY = 16;
+    renderFilledCircle(renderer, ledX, ledY, 6, 8, 10, 14, 255);
+    renderCircleRing(renderer, ledX, ledY, 6, 1, 30, 36, 48, 180);
+    renderFilledCircle(renderer, ledX, ledY, 8, 0, 228, 54, 40);
+    renderFilledCircle(renderer, ledX, ledY, 4, 0, 228, 54, 255);
+    renderFilledCircle(renderer, ledX - 1, ledY - 1, 2, 210, 255, 230, 255);
+
+    // 5. DEBOSSED HARDWARE LOGO: "P  I  C  O  P  L  A  Y"
+    int logoScale = std::max(2, _windowWidth / 360);
+    int logoX = _windowWidth / 2;
+    int logoY = portrait ? (DestR.y + DestR.h + (controlDeckY - 14 - (DestR.y + DestR.h)) / 2) : (DestR.y >= 20 ? (DestR.y / 2) : (_windowHeight - 20));
+    if ((portrait && logoY > DestR.y + DestR.h + 8) || (!portrait && logoY > 10)) {
+        const char* brandText = "P I C O P L A Y";
+        drawPixelText(renderer, brandText, logoX, logoY + 2, logoScale, 5, 7, 9, 240);
+        drawPixelText(renderer, brandText, logoX, logoY, logoScale, 78, 88, 105, 210);
+        drawPixelText(renderer, brandText, logoX, logoY - 1, logoScale, 110, 122, 142, 70);
+    }
+
+    // 6. PRECISION DRILLED SPEAKER PINHOLES
+    int speakerBaseX = portrait ? (_windowWidth * 80 / 100) : (_windowWidth - 80);
+    int speakerBaseY = portrait ? (_windowHeight - 48) : (_windowHeight - 40);
+    for (int row = 0; row < 2; row++) {
+        for (int col = 0; col < 5; col++) {
+            int hx = speakerBaseX + col * 13;
+            int hy = speakerBaseY + row * 13;
+            renderFilledCircle(renderer, hx, hy, 3, 5, 7, 10, 255);
+            renderCircleRing(renderer, hx, hy + 1, 3, 1, 44, 52, 68, 170);
+        }
     }
 
     if (!g_androidShowTouchControls) return;
 
-    int fontScale = std::max(2, _windowWidth / 200);
+    // 7. TOP RECESSED PILLS: [MENU], [+CART], [SCALE]
+    int fontScale = std::max(2, _windowWidth / 220);
+    auto drawRecessedPill = [&](const SDL_Rect& rect, const char* label, Uint8 bgR, Uint8 bgG, Uint8 bgB) {
+        SDL_Rect well = {rect.x - 2, rect.y - 2, rect.w + 4, rect.h + 4};
+        renderRoundedRect(renderer, well, 10, 7, 9, 12, 255);
+        SDL_SetRenderDrawColor(renderer, 34, 40, 52, 180);
+        SDL_RenderDrawLine(renderer, well.x + 8, well.y + well.h - 1, well.x + well.w - 8, well.y + well.h - 1);
 
-    // 2. Top bar pills: [MENU], [+CART], [SCALE]
-    auto drawPill = [&](const SDL_Rect& r, const char* label, Uint8 bgR, Uint8 bgG, Uint8 bgB) {
-        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(renderer, bgR, bgG, bgB, 210);
-        SDL_RenderFillRect(renderer, &r);
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 140);
-        SDL_RenderDrawRect(renderer, &r);
-        drawPixelText(renderer, label, r.x + r.w / 2, r.y + r.h / 2, fontScale, 255, 255, 255, 240);
+        renderRoundedRect(renderer, rect, 8, bgR, bgG, bgB, 240);
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 60);
+        SDL_RenderDrawLine(renderer, rect.x + 8, rect.y + 1, rect.x + rect.w - 8, rect.y + 1);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 90);
+        SDL_RenderDrawLine(renderer, rect.x + 8, rect.y + rect.h - 2, rect.x + rect.w - 8, rect.y + rect.h - 2);
+
+        drawPixelText(renderer, label, rect.x + rect.w / 2, rect.y + rect.h / 2 + 1, fontScale, 0, 0, 0, 180);
+        drawPixelText(renderer, label, rect.x + rect.w / 2, rect.y + rect.h / 2, fontScale, 240, 245, 255, 240);
     };
 
-    drawPill(g_btnMenuRect,   "MENU",  29, 43, 83);
-    drawPill(g_btnImportRect, "+CART", 0, 135, 81);
-
+    drawRecessedPill(g_btnMenuRect,   "MENU",  24, 28, 38);
+    drawRecessedPill(g_btnImportRect, "+CART", 12, 72, 48);
     const char* scaleLabel = (g_scaleMode == 1) ? "1:1" : ((g_scaleMode == 2) ? "MAX" : "FIT");
-    drawPill(g_btnScaleRect,  scaleLabel, 95, 87, 79);
+    drawRecessedPill(g_btnScaleRect,  scaleLabel, 34, 40, 52);
 
-    // 3. Transparent Floating Thumb Virtual Joystick
-    // Outer Base Ring: soft glowing semi-transparent glass
-    renderFilledCircle(renderer, g_stickBaseX, g_stickBaseY, g_stickRadius, 255, 255, 255, 18);
-    renderCircleRing(renderer, g_stickBaseX, g_stickBaseY, g_stickRadius, 3, 255, 255, 255, 85);
+    // 8. MACHINED D-PAD / THUMBSTICK RECESSED DISH
+    int wellR = g_stickRadius + 14;
+    renderFilledCircle(renderer, g_stickBaseX, g_stickBaseY, wellR, 8, 10, 13, 255);
+    renderCircleRing(renderer, g_stickBaseX, g_stickBaseY, wellR, 2, 34, 40, 52, 190);
 
-    // 4 Directional indicator ticks (North, South, West, East)
-    int tickD = g_stickRadius - 10;
-    renderFilledCircle(renderer, g_stickBaseX, g_stickBaseY - tickD, 4, 255, 255, 255, (g_androidTouchHeldMask & P8_KEY_UP) ? 240 : 80);
-    renderFilledCircle(renderer, g_stickBaseX, g_stickBaseY + tickD, 4, 255, 255, 255, (g_androidTouchHeldMask & P8_KEY_DOWN) ? 240 : 80);
-    renderFilledCircle(renderer, g_stickBaseX - tickD, g_stickBaseY, 4, 255, 255, 255, (g_androidTouchHeldMask & P8_KEY_LEFT) ? 240 : 80);
-    renderFilledCircle(renderer, g_stickBaseX + tickD, g_stickBaseY, 4, 255, 255, 255, (g_androidTouchHeldMask & P8_KEY_RIGHT) ? 240 : 80);
+    renderFilledCircle(renderer, g_stickBaseX, g_stickBaseY, g_stickRadius + 4, 13, 16, 21, 255);
+    renderCircleRing(renderer, g_stickBaseX, g_stickBaseY, g_stickRadius + 4, 1, 20, 24, 32, 180);
+    renderFilledCircle(renderer, g_stickBaseX, g_stickBaseY, g_stickRadius - 8, 10, 13, 17, 255);
 
-    // Inner Thumb Knob (Nub): moves with player's thumb
-    Uint8 nubR = g_stickActive ? 41 : 180;
-    Uint8 nubG = g_stickActive ? 173 : 190;
-    Uint8 nubB = g_stickActive ? 255 : 210;
-    Uint8 nubA = g_stickActive ? 180 : 90;
-    renderFilledCircle(renderer, g_stickNubX, g_stickNubY, g_stickNubRadius, nubR, nubG, nubB, nubA);
-    renderCircleRing(renderer, g_stickNubX, g_stickNubY, g_stickNubRadius, 2, 255, 255, 255, g_stickActive ? 220 : 120);
-    renderFilledCircle(renderer, g_stickNubX, g_stickNubY, g_stickNubRadius / 3, 255, 255, 255, g_stickActive ? 240 : 100);
+    // Cardinal Directional Engraved Arrows (▲, ▼, ◀, ▶)
+    int markerDist = g_stickRadius - 6;
+    int arrowW = std::max(6, g_stickRadius * 12 / 100);
+    int arrowH = std::max(5, g_stickRadius * 10 / 100);
 
-    // 4. Action Buttons: O (Red) and X (Blue) with smooth circular arcade glow
-    auto drawCircularBtn = [&](int cx, int cy, int radius, bool pressed, const char* label, Uint8 R, Uint8 G, Uint8 B) {
-        Uint8 btnA = pressed ? 230 : 140;
-        Uint8 curR = pressed ? 255 : R;
-        Uint8 curG = pressed ? 236 : G;
-        Uint8 curB = pressed ? 39 : B;
-        renderFilledCircle(renderer, cx, cy, radius, curR, curG, curB, btnA);
-        renderCircleRing(renderer, cx, cy, radius, 3, 255, 255, 255, pressed ? 255 : 160);
-        drawPixelText(renderer, label, cx, cy, fontScale + 3, pressed ? 0 : 255, pressed ? 0 : 255, pressed ? 0 : 255, 255);
+    // UP Arrow
+    bool upHeld = (g_androidTouchHeldMask & P8_KEY_UP) != 0;
+    if (upHeld) {
+        renderFilledCircle(renderer, g_stickBaseX, g_stickBaseY - markerDist, 10, 41, 173, 255, 90);
+        renderFilledTriangle(renderer, g_stickBaseX, g_stickBaseY - markerDist - arrowH,
+                                g_stickBaseX - arrowW, g_stickBaseY - markerDist + arrowH,
+                                g_stickBaseX + arrowW, g_stickBaseY - markerDist + arrowH,
+                                255, 255, 255, 255);
+    } else {
+        renderFilledTriangle(renderer, g_stickBaseX, g_stickBaseY - markerDist - arrowH + 1,
+                                g_stickBaseX - arrowW, g_stickBaseY - markerDist + arrowH + 1,
+                                g_stickBaseX + arrowW, g_stickBaseY - markerDist + arrowH + 1,
+                                4, 5, 7, 240);
+        renderFilledTriangle(renderer, g_stickBaseX, g_stickBaseY - markerDist - arrowH,
+                                g_stickBaseX - arrowW, g_stickBaseY - markerDist + arrowH,
+                                g_stickBaseX + arrowW, g_stickBaseY - markerDist + arrowH,
+                                60, 70, 86, 200);
+    }
+
+    // DOWN Arrow
+    bool downHeld = (g_androidTouchHeldMask & P8_KEY_DOWN) != 0;
+    if (downHeld) {
+        renderFilledCircle(renderer, g_stickBaseX, g_stickBaseY + markerDist, 10, 41, 173, 255, 90);
+        renderFilledTriangle(renderer, g_stickBaseX, g_stickBaseY + markerDist + arrowH,
+                                g_stickBaseX - arrowW, g_stickBaseY + markerDist - arrowH,
+                                g_stickBaseX + arrowW, g_stickBaseY + markerDist - arrowH,
+                                255, 255, 255, 255);
+    } else {
+        renderFilledTriangle(renderer, g_stickBaseX, g_stickBaseY + markerDist + arrowH + 1,
+                                g_stickBaseX - arrowW, g_stickBaseY + markerDist - arrowH + 1,
+                                g_stickBaseX + arrowW, g_stickBaseY + markerDist - arrowH + 1,
+                                4, 5, 7, 240);
+        renderFilledTriangle(renderer, g_stickBaseX, g_stickBaseY + markerDist + arrowH,
+                                g_stickBaseX - arrowW, g_stickBaseY + markerDist - arrowH,
+                                g_stickBaseX + arrowW, g_stickBaseY + markerDist - arrowH,
+                                60, 70, 86, 200);
+    }
+
+    // LEFT Arrow
+    bool leftHeld = (g_androidTouchHeldMask & P8_KEY_LEFT) != 0;
+    if (leftHeld) {
+        renderFilledCircle(renderer, g_stickBaseX - markerDist, g_stickBaseY, 10, 41, 173, 255, 90);
+        renderFilledTriangle(renderer, g_stickBaseX - markerDist - arrowH, g_stickBaseY,
+                                g_stickBaseX - markerDist + arrowH, g_stickBaseY - arrowW,
+                                g_stickBaseX - markerDist + arrowH, g_stickBaseY + arrowW,
+                                255, 255, 255, 255);
+    } else {
+        renderFilledTriangle(renderer, g_stickBaseX - markerDist - arrowH + 1, g_stickBaseY + 1,
+                                g_stickBaseX - markerDist + arrowH + 1, g_stickBaseY - arrowW + 1,
+                                g_stickBaseX - markerDist + arrowH + 1, g_stickBaseY + arrowW + 1,
+                                4, 5, 7, 240);
+        renderFilledTriangle(renderer, g_stickBaseX - markerDist - arrowH, g_stickBaseY,
+                                g_stickBaseX - markerDist + arrowH, g_stickBaseY - arrowW,
+                                g_stickBaseX - markerDist + arrowH, g_stickBaseY + arrowW,
+                                60, 70, 86, 200);
+    }
+
+    // RIGHT Arrow
+    bool rightHeld = (g_androidTouchHeldMask & P8_KEY_RIGHT) != 0;
+    if (rightHeld) {
+        renderFilledCircle(renderer, g_stickBaseX + markerDist, g_stickBaseY, 10, 41, 173, 255, 90);
+        renderFilledTriangle(renderer, g_stickBaseX + markerDist + arrowH, g_stickBaseY,
+                                g_stickBaseX + markerDist - arrowH, g_stickBaseY - arrowW,
+                                g_stickBaseX + markerDist - arrowH, g_stickBaseY + arrowW,
+                                255, 255, 255, 255);
+    } else {
+        renderFilledTriangle(renderer, g_stickBaseX + markerDist + arrowH + 1, g_stickBaseY + 1,
+                                g_stickBaseX + markerDist - arrowH + 1, g_stickBaseY - arrowW + 1,
+                                g_stickBaseX + markerDist - arrowH + 1, g_stickBaseY + arrowW + 1,
+                                4, 5, 7, 240);
+        renderFilledTriangle(renderer, g_stickBaseX + markerDist + arrowH, g_stickBaseY,
+                                g_stickBaseX + markerDist - arrowH, g_stickBaseY - arrowW,
+                                g_stickBaseX + markerDist - arrowH, g_stickBaseY + arrowW,
+                                60, 70, 86, 200);
+    }
+
+    // Tactile Machined Thumb Nub
+    Uint8 nubFillR = g_stickActive ? 32 : 24;
+    Uint8 nubFillG = g_stickActive ? 38 : 28;
+    Uint8 nubFillB = g_stickActive ? 52 : 38;
+
+    if (!g_stickActive) {
+        renderFilledCircle(renderer, g_stickNubX + 2, g_stickNubY + 5, g_stickNubRadius, 4, 5, 7, 190);
+    } else {
+        renderFilledCircle(renderer, g_stickNubX, g_stickNubY, g_stickNubRadius + 6, 41, 173, 255, 60);
+    }
+    renderFilledCircle(renderer, g_stickNubX, g_stickNubY, g_stickNubRadius, nubFillR, nubFillG, nubFillB, 255);
+    renderCircleRing(renderer, g_stickNubX, g_stickNubY, g_stickNubRadius, 3, 58, 68, 86, 220);
+
+    // Radial knurling ticks around the perimeter (8 notch ticks)
+    for (int a = 0; a < 8; a++) {
+        float angle = a * (3.14159265f / 4.0f);
+        int tx0 = g_stickNubX + (int)(cosf(angle) * (g_stickNubRadius - 3));
+        int ty0 = g_stickNubY + (int)(sinf(angle) * (g_stickNubRadius - 3));
+        int tx1 = g_stickNubX + (int)(cosf(angle) * (g_stickNubRadius + 1));
+        int ty1 = g_stickNubY + (int)(sinf(angle) * (g_stickNubRadius + 1));
+        SDL_SetRenderDrawColor(renderer, 30, 36, 46, 255);
+        SDL_RenderDrawLine(renderer, tx0, ty0, tx1, ty1);
+    }
+
+    renderCircleRing(renderer, g_stickNubX - 1, g_stickNubY - 1, g_stickNubRadius - 2, 1, 255, 255, 255, g_stickActive ? 180 : 90);
+    renderFilledCircle(renderer, g_stickNubX, g_stickNubY, g_stickNubRadius * 48 / 100, 14, 16, 22, 255);
+    renderCircleRing(renderer, g_stickNubX, g_stickNubY, g_stickNubRadius * 48 / 100, 1, 8, 10, 14, 255);
+    renderFilledCircle(renderer, g_stickNubX, g_stickNubY, 3, 44, 52, 68, 240);
+
+    // 9. 3D MECHANICAL ACTION BUTTONS ([O] and [X])
+    auto drawMechanicalButton = [&](int cx, int cy, int radius, bool pressed, bool isO, Uint8 baseR, Uint8 baseG, Uint8 baseB) {
+        int wellRadius = radius + 9;
+        renderFilledCircle(renderer, cx, cy, wellRadius, 7, 9, 12, 255);
+        renderCircleRing(renderer, cx, cy, wellRadius, 2, 4, 5, 7, 240);
+        renderCircleRing(renderer, cx, cy + 1, wellRadius, 1, 34, 40, 52, 190);
+
+        int capY = pressed ? (cy + 4) : cy;
+        int capX = cx;
+
+        if (!pressed) {
+            renderFilledCircle(renderer, capX, capY + 5, radius, 3, 4, 6, 210);
+        } else {
+            renderFilledCircle(renderer, capX, capY, radius + 5, baseR, baseG, baseB, 75);
+        }
+
+        Uint8 curR = pressed ? std::min(255, baseR + 35) : baseR;
+        Uint8 curG = pressed ? std::min(255, baseG + 35) : baseG;
+        Uint8 curB = pressed ? std::min(255, baseB + 35) : baseB;
+        renderFilledCircle(renderer, capX, capY, radius, curR, curG, curB, 255);
+
+        Uint8 rimR = pressed ? 255 : (Uint8)(baseR * 0.72f);
+        Uint8 rimG = pressed ? 255 : (Uint8)(baseG * 0.72f);
+        Uint8 rimB = pressed ? 255 : (Uint8)(baseB * 0.72f);
+        renderCircleRing(renderer, capX, capY, radius, 2, rimR, rimG, rimB, 230);
+
+        if (!pressed) {
+            renderCircleRing(renderer, capX - 1, capY - 1, radius - 2, 2, 255, 255, 255, 95);
+        }
+
+        if (isO) {
+            drawBoldButtonOGlyph(renderer, capX, capY, radius, 255, 255, 255, 255);
+        } else {
+            drawBoldButtonXGlyph(renderer, capX, capY, radius, 255, 255, 255, 255);
+        }
     };
 
-    drawCircularBtn(g_btnOCenterX, g_btnOCenterY, g_btnORadius, (g_androidTouchHeldMask & P8_KEY_O) != 0, "O", 255, 0, 77);
-    drawCircularBtn(g_btnXCenterX, g_btnXCenterY, g_btnXRadius, (g_androidTouchHeldMask & P8_KEY_X) != 0, "X", 41, 173, 255);
+    drawMechanicalButton(g_btnOCenterX, g_btnOCenterY, g_btnORadius, (g_androidTouchHeldMask & P8_KEY_O) != 0, true, 255, 0, 77);
+    drawMechanicalButton(g_btnXCenterX, g_btnXCenterY, g_btnXRadius, (g_androidTouchHeldMask & P8_KEY_X) != 0, false, 41, 173, 255);
 }
 #endif
 
@@ -771,9 +1075,9 @@ void Host::waitForTargetFps(){
 
 
 void Host::drawFrame(uint8_t* picoFb, uint8_t* screenPaletteMap, uint8_t drawMode){
-    //clear screen to dark arcade background on Android, black elsewhere
+    //clear screen to obsidian matte chassis background on Android, black elsewhere
 #if defined(__ANDROID__)
-    SDL_SetRenderDrawColor(renderer, 18, 20, 32, 255);
+    SDL_SetRenderDrawColor(renderer, 15, 18, 23, 255);
 #else
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
 #endif
