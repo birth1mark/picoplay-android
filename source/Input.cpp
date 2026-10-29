@@ -54,9 +54,8 @@ void Input::SetState(uint8_t kdown, uint8_t kheld){
         //again every four frames after that. The frame counter resets when the 
         //player releases the button. 
 
-        bool repeatPressed = 
-            (_framesHeld[i] == repeatDelay) ||
-            (_framesHeld[i] / repeatDelay >= 1 && _framesHeld[i] % repeatInterval == 0);
+        bool repeatPressed = (_framesHeld[i] >= repeatDelay) &&
+                             ((_framesHeld[i] - repeatDelay) % repeatInterval == 0);
 
         if (repeatPressed) {
             _currentKDown = _currentKDown | BITMASK(i);

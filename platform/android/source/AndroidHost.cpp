@@ -16,6 +16,7 @@
 
 #include <SDL.h>
 #include <jni.h>
+#include <android/log.h>
 
 extern int _windowWidth;
 extern int _windowHeight;
@@ -50,9 +51,12 @@ extern SDL_Rect g_btnScaleRect;
 static uint8_t s_prevCombinedHeld = 0;
 static uint8_t s_joyHeldMask = 0;
 static std::map<SDL_JoystickID, SDL_Joystick*> s_openJoysticks;
-static bool s_prevMenuTap = false;
-static bool s_prevImportTap = false;
-static bool s_prevScaleTap = false;
+
+struct ActiveFingerPos {
+    int x;
+    int y;
+};
+static std::map<SDL_FingerID, ActiveFingerPos> s_activeFingers;
 
 static void triggerAndroidImportPicker() {
     JNIEnv* env = (JNIEnv*)SDL_AndroidGetJNIEnv();
@@ -162,10 +166,35 @@ InputState_t Host::scanInput() {
                 }
                 break;
 
-            case SDL_FINGERDOWN:
+            case SDL_FINGERDOWN: {
                 g_androidShowTouchControls = true;
                 s_joyHeldMask = 0;
                 currKHeld = 0;
+
+                int tx = (int)(event.tfinger.x * _windowWidth);
+                int ty = (int)(event.tfinger.y * _windowHeight);
+                s_activeFingers[event.tfinger.fingerId] = {tx, ty};
+
+                // Immediate top bar action button hits
+                if (pointInExpandedRect(tx, ty, g_btnMenuRect, 28)) {
+                    kDown |= P8_KEY_PAUSE;
+                } else if (pointInExpandedRect(tx, ty, g_btnImportRect, 28)) {
+                    triggerAndroidImportPicker();
+                } else if (pointInExpandedRect(tx, ty, g_btnScaleRect, 28)) {
+                    stretchKeyPressed = true;
+                }
+                break;
+            }
+
+            case SDL_FINGERMOTION: {
+                int tx = (int)(event.tfinger.x * _windowWidth);
+                int ty = (int)(event.tfinger.y * _windowHeight);
+                s_activeFingers[event.tfinger.fingerId] = {tx, ty};
+                break;
+            }
+
+            case SDL_FINGERUP:
+                s_activeFingers.erase(event.tfinger.fingerId);
                 break;
 
             case SDL_KEYDOWN:
@@ -266,129 +295,105 @@ InputState_t Host::scanInput() {
         }
     }
 
-    // Direct multi-touch evaluation from SDL2's live active finger table (zero ghost touches!)
+    // Direct multi-touch evaluation from live active fingers map (zero ghost touches!)
     uint8_t touchMask = 0;
-    bool menuTapped = false;
-    bool importTapped = false;
-    bool scaleTapped = false;
     bool stickTouchFound = false;
 
     if (g_androidShowTouchControls) {
         bool portrait = (_windowHeight >= _windowWidth);
-        int numTouchDevs = SDL_GetNumTouchDevices();
-        for (int d = 0; d < numTouchDevs; d++) {
-            SDL_TouchID tid = SDL_GetTouchDevice(d);
-            int numFingers = SDL_GetNumTouchFingers(tid);
-            for (int f = 0; f < numFingers; f++) {
-                SDL_Finger* finger = SDL_GetTouchFinger(tid, f);
-                if (!finger) continue;
-                int tx = (int)(finger->x * _windowWidth);
-                int ty = (int)(finger->y * _windowHeight);
+        for (const auto& kv : s_activeFingers) {
+            int tx = kv.second.x;
+            int ty = kv.second.y;
 
-                // Top menu pills (generous 28px padding for easy fingertip access)
-                if (pointInExpandedRect(tx, ty, g_btnMenuRect, 28)) {
-                    menuTapped = true;
-                } else if (pointInExpandedRect(tx, ty, g_btnImportRect, 28)) {
-                    importTapped = true;
-                } else if (pointInExpandedRect(tx, ty, g_btnScaleRect, 28)) {
-                    scaleTapped = true;
+            // Skip touches on top menu pills
+            if (pointInExpandedRect(tx, ty, g_btnMenuRect, 28) ||
+                pointInExpandedRect(tx, ty, g_btnImportRect, 28) ||
+                pointInExpandedRect(tx, ty, g_btnScaleRect, 28)) {
+                continue;
+            }
+
+            // Transparent Floating Virtual Joystick (Left Control Zone)
+            bool inLeftZone = portrait ? (tx <= _windowWidth * 50 / 100 && ty > DestR.y + DestR.h)
+                                       : (tx < DestR.x && ty > 60);
+            if (inLeftZone) {
+                if (!s_stickTracked) {
+                    s_stickTracked = true;
+                    // Dynamically anchor joystick base around the initial touch point
+                    int minX = g_stickRadius + 10;
+                    int maxX = portrait ? (_windowWidth * 48 / 100) : (DestR.x - g_stickRadius - 10);
+                    int minY = portrait ? (DestR.y + DestR.h + g_stickRadius + 10) : (60 + g_stickRadius);
+                    int maxY = _windowHeight - g_stickRadius - 10;
+                    g_stickBaseX = std::max(minX, std::min(tx, maxX));
+                    g_stickBaseY = std::max(minY, std::min(ty, maxY));
+                    g_stickNubX = g_stickBaseX;
+                    g_stickNubY = g_stickBaseY;
                 }
 
-                // Transparent Floating Virtual Joystick (Left Control Zone)
-                bool inLeftZone = portrait ? (tx < _windowWidth * 55 / 100 && ty > DestR.y + DestR.h)
-                                           : (tx < DestR.x && ty > 60);
-                if (inLeftZone) {
-                    if (!s_stickTracked) {
-                        s_stickTracked = true;
-                        // Dynamically anchor joystick base around the initial touch point
-                        int minX = g_stickRadius + 10;
-                        int maxX = portrait ? (_windowWidth * 50 / 100) : (DestR.x - g_stickRadius - 10);
-                        int minY = portrait ? (DestR.y + DestR.h + g_stickRadius + 10) : (60 + g_stickRadius);
-                        int maxY = _windowHeight - g_stickRadius - 10;
-                        g_stickBaseX = std::max(minX, std::min(tx, maxX));
-                        g_stickBaseY = std::max(minY, std::min(ty, maxY));
-                        g_stickNubX = g_stickBaseX;
-                        g_stickNubY = g_stickBaseY;
-                    }
-
-                    float dx = (float)(tx - g_stickBaseX);
-                    float dy = (float)(ty - g_stickBaseY);
-                    float dist = sqrtf(dx * dx + dy * dy);
-                    stickTouchFound = true;
-                    g_stickActive = true;
-                    float maxNubDist = (float)g_stickRadius;
-                    if (dist > maxNubDist) {
-                        g_stickNubX = g_stickBaseX + (int)(dx / dist * maxNubDist);
-                        g_stickNubY = g_stickBaseY + (int)(dy / dist * maxNubDist);
-                    } else {
-                        g_stickNubX = tx;
-                        g_stickNubY = ty;
-                    }
-
-                    float deadzone = g_stickRadius * 0.25f;
-                    if (dist > deadzone) {
-                        float absDx = fabsf(dx);
-                        float absDy = fabsf(dy);
-                        // Cardinal vs diagonal gating: ~22.5 degrees from axis
-                        if (absDx >= dist * 0.38f) {
-                            if (dx < 0) touchMask |= P8_KEY_LEFT;
-                            else        touchMask |= P8_KEY_RIGHT;
-                        }
-                        if (absDy >= dist * 0.38f) {
-                            if (dy < 0) touchMask |= P8_KEY_UP;
-                            else        touchMask |= P8_KEY_DOWN;
-                        }
-                    }
+                float dx = (float)(tx - g_stickBaseX);
+                float dy = (float)(ty - g_stickBaseY);
+                float dist = sqrtf(dx * dx + dy * dy);
+                stickTouchFound = true;
+                g_stickActive = true;
+                float maxNubDist = (float)g_stickRadius;
+                if (dist > maxNubDist) {
+                    g_stickNubX = g_stickBaseX + (int)(dx / dist * maxNubDist);
+                    g_stickNubY = g_stickBaseY + (int)(dy / dist * maxNubDist);
+                } else {
+                    g_stickNubX = tx;
+                    g_stickNubY = ty;
                 }
 
-                // Circular Action Buttons O (Red) and X (Blue) with 24px pad
+                float deadzone = g_stickRadius * 0.25f;
+                if (dist > deadzone) {
+                    float absDx = fabsf(dx);
+                    float absDy = fabsf(dy);
+                    // Cardinal vs diagonal gating: ~22.5 degrees from axis
+                    if (absDx >= dist * 0.38f) {
+                        if (dx < 0) touchMask |= P8_KEY_LEFT;
+                        else        touchMask |= P8_KEY_RIGHT;
+                    }
+                    if (absDy >= dist * 0.38f) {
+                        if (dy < 0) touchMask |= P8_KEY_UP;
+                        else        touchMask |= P8_KEY_DOWN;
+                    }
+                }
+            }
+
+            // Circular Action Buttons O (Red) and X (Blue) with 24px pad (Right Control Zone)
+            if (tx > _windowWidth * 50 / 100) {
                 if (pointInCircle(tx, ty, g_btnOCenterX, g_btnOCenterY, g_btnORadius, 24)) {
                     touchMask |= P8_KEY_O;
                 }
                 if (pointInCircle(tx, ty, g_btnXCenterX, g_btnXCenterY, g_btnXRadius, 24)) {
                     touchMask |= P8_KEY_X;
                 }
+            }
 
-                // Virtual mouse inside PICO-8 screen
-                if (DestR.w > 0 && DestR.h > 0 &&
-                    tx >= DestR.x && tx < DestR.x + DestR.w &&
-                    ty >= DestR.y && ty < DestR.y + DestR.h) {
-                    float sx = DestR.w / 128.0f;
-                    float sy = DestR.h / 128.0f;
-                    mouseX = (int)((tx - DestR.x) / sx);
-                    mouseY = (int)((ty - DestR.y) / sy);
-                    mouseBtnState = 1;
-                }
+            // Virtual mouse inside PICO-8 screen
+            if (DestR.w > 0 && DestR.h > 0 &&
+                tx >= DestR.x && tx < DestR.x + DestR.w &&
+                ty >= DestR.y && ty < DestR.y + DestR.h) {
+                float sx = DestR.w / 128.0f;
+                float sy = DestR.h / 128.0f;
+                mouseX = (int)((tx - DestR.x) / sx);
+                mouseY = (int)((ty - DestR.y) / sy);
+                mouseBtnState = 1;
             }
         }
 
         if (!stickTouchFound) {
             s_stickTracked = false;
             g_stickActive = false;
-            g_stickBaseX = g_stickDefaultBaseX;
-            g_stickBaseY = g_stickDefaultBaseY;
-            g_stickNubX = g_stickDefaultBaseX;
-            g_stickNubY = g_stickDefaultBaseY;
+            if (g_stickDefaultBaseX > 0 && g_stickDefaultBaseY > 0) {
+                g_stickBaseX = g_stickDefaultBaseX;
+                g_stickBaseY = g_stickDefaultBaseY;
+                g_stickNubX = g_stickDefaultBaseX;
+                g_stickNubY = g_stickDefaultBaseY;
+            }
         }
     } else {
         g_stickActive = false;
     }
-
-    // Top button edge detection (fires only once per tap)
-    if (menuTapped && !s_prevMenuTap) {
-        kDown |= P8_KEY_PAUSE;
-    }
-    s_prevMenuTap = menuTapped;
-
-    if (importTapped && !s_prevImportTap) {
-        triggerAndroidImportPicker();
-    }
-    s_prevImportTap = importTapped;
-
-    if (scaleTapped && !s_prevScaleTap) {
-        stretchKeyPressed = true;
-    }
-    s_prevScaleTap = scaleTapped;
 
     g_androidTouchHeldMask = touchMask;
     uint8_t combinedHeld = g_androidShowTouchControls ? g_androidTouchHeldMask : (currKHeld | s_joyHeldMask);

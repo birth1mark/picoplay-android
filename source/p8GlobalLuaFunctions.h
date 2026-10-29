@@ -225,15 +225,13 @@ __f08_menu_selected = 0
 __f08_mouse_was_down = false
 
 function __f08_menu_update()
-    if btnp(3) and __f08_menu_selected < #__f08_menu_items then
-        repeat
-            __f08_menu_selected = __f08_menu_selected + 1
-        until __f08_menu_items[__f08_menu_selected][1] ~= nil
-    end
-
     if btnp(2) and __f08_menu_selected > 0 then
         repeat
             __f08_menu_selected = __f08_menu_selected - 1
+        until __f08_menu_items[__f08_menu_selected][1] ~= nil
+    elseif btnp(3) and __f08_menu_selected < #__f08_menu_items then
+        repeat
+            __f08_menu_selected = __f08_menu_selected + 1
         until __f08_menu_items[__f08_menu_selected][1] ~= nil
     end
 

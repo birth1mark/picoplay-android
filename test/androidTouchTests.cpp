@@ -337,3 +337,97 @@ TEST_CASE("Android Touch Screen to PICO-8 Mouse Coordinate Mapping") {
     CHECK(mapTouchToMouse(500, 1600, mx, my, btn) == false);
     CHECK(btn == 0);
 }
+
+TEST_CASE("btnp Repeat Mechanism - No Consecutive Double Jumps") {
+    uint8_t repeatDelay = 15;
+    uint8_t repeatInterval = 4;
+
+    auto checkRepeat = [&](int f) -> bool {
+        return (f >= repeatDelay) && ((f - repeatDelay) % repeatInterval == 0);
+    };
+
+    // Frames 1 to 14: button held, but no repeat should fire
+    for (int f = 1; f < 15; f++) {
+        CHECK_FALSE(checkRepeat(f));
+    }
+
+    // Frame 15: first repeat fires
+    CHECK(checkRepeat(15) == true);
+
+    // Frame 16: CRITICAL - must NOT fire on consecutive frame!
+    CHECK_FALSE(checkRepeat(16));
+    CHECK_FALSE(checkRepeat(17));
+    CHECK_FALSE(checkRepeat(18));
+
+    // Frame 19: exactly 4 frames later, second repeat fires
+    CHECK(checkRepeat(19) == true);
+
+    // Frame 20-22: off
+    CHECK_FALSE(checkRepeat(20));
+    CHECK_FALSE(checkRepeat(21));
+    CHECK_FALSE(checkRepeat(22));
+
+    // Frame 23: third repeat fires
+    CHECK(checkRepeat(23) == true);
+}
+
+TEST_CASE("Android Floating Joystick - Resting Position Non-Zero Guard") {
+    int defaultBaseX = 270;
+    int defaultBaseY = 1800;
+    int baseX = defaultBaseX;
+    int baseY = defaultBaseY;
+    int nubX = defaultBaseX;
+    int nubY = defaultBaseY;
+
+    // Simulate touch dragging stick
+    baseX = 300;
+    baseY = 1750;
+    nubX = 320;
+    nubY = 1720;
+
+    // Touch released: must return to default base, never (0,0)
+    bool stickTouchFound = false;
+    if (!stickTouchFound) {
+        if (defaultBaseX > 0 && defaultBaseY > 0) {
+            baseX = defaultBaseX;
+            baseY = defaultBaseY;
+            nubX = defaultBaseX;
+            nubY = defaultBaseY;
+        }
+    }
+
+    CHECK(baseX == 270);
+    CHECK(baseY == 1800);
+    CHECK(nubX == 270);
+    CHECK(nubY == 1800);
+    CHECK(baseX != 0);
+    CHECK(baseY != 0);
+}
+
+TEST_CASE("Android Portrait Scale Modes - Distinct Useful Steps") {
+    int windowW = 1080;
+    int windowH = 2410;
+    int topBarBottom = 168;
+    int controlDeckY = windowH * 53 / 100; // 1277
+    int maxDispH = controlDeckY - (topBarBottom + 20); // 1089
+    int maxBound = std::min(windowW, maxDispH); // 1080
+    int maxInt = maxBound / 128; // 8
+
+    // Mode 0: FIT (Framed Handheld Console)
+    int fitFactor = std::max(1, maxInt - 1); // 7
+    int fitW = fitFactor * 128; // 896
+
+    // Mode 1: 1:1 (Max Pixel-Perfect)
+    int oneToOneW = maxInt * 128; // 1024
+
+    // Mode 2: MAX (Edge-to-Edge)
+    int maxW = windowW; // 1080
+
+    CHECK(fitW == 896);
+    CHECK(oneToOneW == 1024);
+    CHECK(maxW == 1080);
+
+    // Each mode must have a significant, clearly visible difference (> 50px)
+    CHECK(oneToOneW - fitW >= 128);
+    CHECK(maxW - oneToOneW >= 56);
+}

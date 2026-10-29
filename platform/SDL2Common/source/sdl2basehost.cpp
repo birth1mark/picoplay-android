@@ -19,6 +19,7 @@ using namespace std;
 // sdl
 #if defined(__ANDROID__)
 #include <SDL.h>
+#include <android/log.h>
 #else
 #include <SDL2/SDL.h>
 #endif
@@ -224,9 +225,11 @@ static void updateAndroidLayout() {
 
     bool portrait = (_windowHeight >= _windowWidth);
     if (portrait) {
-        // Safe inset from camera notch / top status bar: at least 70px or 7% of screen height
-        int topSafe = std::max(70, _windowHeight * 7 / 100);
-        int topBarH = std::max(48, _windowHeight * 5 / 100);
+        // Safe inset from camera notch / top status bar: at least 60px or 5% of screen height
+        int topSafe = std::max(60, _windowHeight * 5 / 100);
+        int topBarH = std::max(48, _windowHeight * 4 / 100);
+        int topBarBottom = topSafe + topBarH;
+
         int marginX = 20;
         int spacing = 14;
         int btnW = (_windowWidth - (marginX * 2) - (spacing * 2)) / 3;
@@ -235,42 +238,18 @@ static void updateAndroidLayout() {
         g_btnImportRect = {marginX + btnW + spacing, topSafe, btnW, topBarH};
         g_btnScaleRect  = {marginX + (btnW + spacing) * 2, topSafe, btnW, topBarH};
 
-        // PICO-8 screen sizing based on selected scaleMode
-        int maxAvailableH = (_windowHeight * 48) / 100;
-        int maxAvailableW = _windowWidth - 24;
-        int baseSize = std::min(maxAvailableW, maxAvailableH);
-
-        if (g_scaleMode == 1) {
-            // Pixel-Perfect Integer scaling (multiple of 128)
-            int factor = baseSize / PicoScreenWidth;
-            if (factor < 1) factor = 1;
-            _screenWidth = factor * PicoScreenWidth;
-            _screenHeight = factor * PicoScreenHeight;
-        } else if (g_scaleMode == 2) {
-            // Max Wide / Fill Width
-            _screenWidth = _windowWidth;
-            _screenHeight = _windowWidth; // keep 1:1 square aspect ratio
-        } else {
-            // Mode 0: Handheld Bezel Fit (Default)
-            _screenWidth = baseSize;
-            _screenHeight = baseSize;
-        }
-
-        DestR.w = _screenWidth;
-        DestR.h = _screenHeight;
-        DestR.x = (_windowWidth - _screenWidth) / 2;
-        DestR.y = topSafe + topBarH + 20;
-
-        // Bottom Controls Area
-        int bottomAreaY = DestR.y + DestR.h + 20;
-        int bottomAreaH = _windowHeight - bottomAreaY;
+        // Dedicated Lower Control Deck: stable placement regardless of scaling mode
+        int controlDeckY = _windowHeight * 55 / 100;
+        int controlDeckH = _windowHeight - controlDeckY;
 
         // Thumb Virtual Joystick geometry (Lower Left)
-        g_stickRadius = std::min(_windowWidth * 18 / 100, bottomAreaH * 38 / 100);
+        g_stickRadius = std::min(_windowWidth * 19 / 100, controlDeckH * 32 / 100);
         if (g_stickRadius < 65) g_stickRadius = 65;
         g_stickNubRadius = g_stickRadius * 46 / 100;
         g_stickBaseX = _windowWidth * 25 / 100;
-        g_stickBaseY = bottomAreaY + bottomAreaH * 52 / 100;
+        g_stickBaseY = controlDeckY + controlDeckH * 48 / 100;
+        g_stickDefaultBaseX = g_stickBaseX;
+        g_stickDefaultBaseY = g_stickBaseY;
 
         if (!g_stickActive) {
             g_stickNubX = g_stickBaseX;
@@ -284,22 +263,62 @@ static void updateAndroidLayout() {
         // Ergonomic slanted placement for thumb
         int rightHubX = _windowWidth * 75 / 100;
         int rightHubY = g_stickBaseY;
-        g_btnOCenterX = rightHubX - g_btnORadius - 6;
+        g_btnOCenterX = rightHubX - g_btnORadius - 8;
         g_btnOCenterY = rightHubY + g_btnORadius - 4;
 
-        g_btnXCenterX = rightHubX + g_btnXRadius + 6;
+        g_btnXCenterX = rightHubX + g_btnXRadius + 8;
         g_btnXCenterY = rightHubY - g_btnXRadius + 8;
+
+        // Upper Display Viewport: mathematically centered between top bar and control deck
+        int displayAreaTop = topBarBottom + 16;
+        int displayAreaH = controlDeckY - displayAreaTop - 12;
+        int maxBound = std::min(_windowWidth, displayAreaH);
+        int maxIntegerFactor = maxBound / PicoScreenWidth;
+        if (maxIntegerFactor < 1) maxIntegerFactor = 1;
+
+        if (g_scaleMode == 1) {
+            // Mode 1: 1:1 Pixel-Perfect maximum integer scaling (e.g. 8x = 1024px)
+            _screenWidth = maxIntegerFactor * PicoScreenWidth;
+            _screenHeight = maxIntegerFactor * PicoScreenHeight;
+            DestR.w = _screenWidth;
+            DestR.h = _screenHeight;
+            DestR.x = (_windowWidth - _screenWidth) / 2;
+            DestR.y = displayAreaTop + (displayAreaH - _screenHeight) / 2;
+        } else if (g_scaleMode == 2) {
+            // Mode 2: MAX Fill Width (1080px edge-to-edge)
+            _screenWidth = _windowWidth;
+            _screenHeight = _windowWidth;
+            DestR.w = _screenWidth;
+            DestR.h = _screenHeight;
+            DestR.x = 0;
+            DestR.y = displayAreaTop + (displayAreaH - _screenHeight) / 2;
+            if (DestR.y < displayAreaTop) DestR.y = displayAreaTop;
+        } else {
+            // Mode 0: FIT Handheld Framed Display (1 integer step smaller with bezel, e.g. 7x = 896px)
+            int fitFactor = std::max(1, maxIntegerFactor - 1);
+            _screenWidth = fitFactor * PicoScreenWidth;
+            _screenHeight = fitFactor * PicoScreenHeight;
+            DestR.w = _screenWidth;
+            DestR.h = _screenHeight;
+            DestR.x = (_windowWidth - _screenWidth) / 2;
+            DestR.y = displayAreaTop + (displayAreaH - _screenHeight) / 2;
+        }
     } else {
         // Landscape layout
         int maxScreen = _windowHeight - 20;
+        int maxInt = maxScreen / PicoScreenWidth;
+        if (maxInt < 1) maxInt = 1;
+
         if (g_scaleMode == 1) {
-            int factor = maxScreen / PicoScreenWidth;
-            if (factor < 1) factor = 1;
-            _screenWidth = factor * PicoScreenWidth;
-            _screenHeight = factor * PicoScreenHeight;
+            _screenWidth = maxInt * PicoScreenWidth;
+            _screenHeight = maxInt * PicoScreenHeight;
+        } else if (g_scaleMode == 2) {
+            _screenWidth = _windowHeight; // full height edge-to-edge
+            _screenHeight = _windowHeight;
         } else {
-            _screenWidth = maxScreen;
-            _screenHeight = maxScreen;
+            int fitFactor = std::max(1, maxInt - 1);
+            _screenWidth = fitFactor * PicoScreenWidth;
+            _screenHeight = fitFactor * PicoScreenHeight;
         }
         DestR.w = _screenWidth;
         DestR.h = _screenHeight;
@@ -320,6 +339,8 @@ static void updateAndroidLayout() {
         g_stickNubRadius = g_stickRadius * 46 / 100;
         g_stickBaseX = sideW / 2 + 10;
         g_stickBaseY = _windowHeight * 64 / 100;
+        g_stickDefaultBaseX = g_stickBaseX;
+        g_stickDefaultBaseY = g_stickBaseY;
 
         if (!g_stickActive) {
             g_stickNubX = g_stickBaseX;
@@ -338,13 +359,17 @@ static void updateAndroidLayout() {
 }
 
 static void drawAndroidOverlay() {
-    // 1. Draw retro handheld bezel around DestR (if in mode 0 or 1)
-    if (g_scaleMode != 2) {
+    if (g_stickBaseX <= 0 || g_stickDefaultBaseX <= 0) {
+        updateAndroidLayout();
+    }
+
+    // 1. Draw retro handheld bezel around DestR (if in mode 0 or 1 and margin permits)
+    if (g_scaleMode != 2 && DestR.x >= 6) {
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-        SDL_Rect bezel = {DestR.x - 8, DestR.y - 8, DestR.w + 16, DestR.h + 16};
+        SDL_Rect bezel = {DestR.x - 6, DestR.y - 6, DestR.w + 12, DestR.h + 12};
         SDL_SetRenderDrawColor(renderer, 29, 43, 83, 255);
         SDL_RenderDrawRect(renderer, &bezel);
-        SDL_Rect bezel2 = {DestR.x - 4, DestR.y - 4, DestR.w + 8, DestR.h + 8};
+        SDL_Rect bezel2 = {DestR.x - 3, DestR.y - 3, DestR.w + 6, DestR.h + 6};
         SDL_SetRenderDrawColor(renderer, 95, 87, 79, 255);
         SDL_RenderDrawRect(renderer, &bezel2);
     }
@@ -440,7 +465,11 @@ void audioSetup(){
     want.freq = SAMPLERATE;
     want.format = AUDIO_S16;
     want.channels = 2;
-    want.samples = 512;  // Lower buffer size for reduced audio latency (~23ms vs ~186ms)
+#if defined(__ANDROID__)
+    want.samples = 1024;  // 1024 samples (~46ms buffer) prevents AAudio underruns and crackling on Android
+#else
+    want.samples = 512;   // Lower buffer size for reduced audio latency on Desktop / PS4
+#endif
     want.callback = FillAudioDeviceBuffer;
     
 
@@ -545,6 +574,7 @@ void Host::setPlatformParams(
 
 void Host::oneTimeSetup(Audio* audio){
 #if defined(__ANDROID__)
+    SDL_SetHint(SDL_HINT_AUDIODRIVER, "opensles");
     SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0");
     SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
     SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
@@ -647,10 +677,11 @@ void Host::setTargetFps(int targetFps){
 
 void Host::changeStretch(){
 #if defined(__ANDROID__)
-    if (stretchKeyPressed) {
+    if (::stretchKeyPressed || stretchKeyPressed) {
+        ::stretchKeyPressed = false;
+        stretchKeyPressed = false;
         g_scaleMode = (g_scaleMode + 1) % 3;
         updateAndroidLayout();
-        stretchKeyPressed = false;
     }
     return;
 #endif
