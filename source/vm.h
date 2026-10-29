@@ -23,6 +23,7 @@ class Vm {
     Host* _host;
     PicoRam* _memory;
     uint8_t _drawStateCopy[64];
+    hwState_t _hwStateCopy;
 
     Graphics* _graphics;
     Audio* _audio;
@@ -83,6 +84,7 @@ class Vm {
 
     uint8_t* GetPicoInteralFb();
     uint8_t* GetScreenPaletteMap();
+    lua_State* GetLuaState() { return _luaState; }
 
     void FillAudioBuffer(void *audioBuffer, size_t offset, size_t size);
 

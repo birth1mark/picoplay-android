@@ -29,6 +29,7 @@ extern SDL_Renderer *renderer;
 extern bool g_androidShowTouchControls;
 extern uint8_t g_androidTouchHeldMask;
 extern int g_scaleMode;
+extern void updateAndroidLayout();
 
 extern int g_stickBaseX;
 extern int g_stickBaseY;
@@ -51,6 +52,8 @@ extern SDL_Rect g_btnScaleRect;
 static uint8_t s_prevCombinedHeld = 0;
 static uint8_t s_joyHeldMask = 0;
 static std::map<SDL_JoystickID, SDL_Joystick*> s_openJoysticks;
+static int s_lastMouseX = 64;
+static int s_lastMouseY = 64;
 
 struct ActiveFingerPos {
     int x;
@@ -181,7 +184,8 @@ InputState_t Host::scanInput() {
                 } else if (pointInExpandedRect(tx, ty, g_btnImportRect, 28)) {
                     triggerAndroidImportPicker();
                 } else if (pointInExpandedRect(tx, ty, g_btnScaleRect, 28)) {
-                    stretchKeyPressed = true;
+                    g_scaleMode = (g_scaleMode + 1) % 3;
+                    updateAndroidLayout();
                 }
                 break;
             }
@@ -375,10 +379,17 @@ InputState_t Host::scanInput() {
                 ty >= DestR.y && ty < DestR.y + DestR.h) {
                 float sx = DestR.w / 128.0f;
                 float sy = DestR.h / 128.0f;
-                mouseX = (int)((tx - DestR.x) / sx);
-                mouseY = (int)((ty - DestR.y) / sy);
+                s_lastMouseX = std::max(0, std::min(127, (int)((tx - DestR.x) / sx)));
+                s_lastMouseY = std::max(0, std::min(127, (int)((ty - DestR.y) / sy)));
+                mouseX = s_lastMouseX;
+                mouseY = s_lastMouseY;
                 mouseBtnState = 1;
             }
+        }
+
+        if (mouseBtnState == 0) {
+            mouseX = s_lastMouseX;
+            mouseY = s_lastMouseY;
         }
 
         if (!stickTouchFound) {

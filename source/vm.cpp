@@ -534,6 +534,7 @@ void Vm::togglePauseMenu(){
         //save old draw state
         //0x5f00-0x5f3f - 64 bytes
         memcpy(_drawStateCopy, &_memory->drawState, 64);
+        _hwStateCopy = _memory->hwState;
 
         _graphics->pal();
         _graphics->fillp(0);
@@ -541,12 +542,17 @@ void Vm::togglePauseMenu(){
         _graphics->camera();
         _graphics->color();
 
+        _memory->hwState.screenDataMemMapping = 0x60;
+        _memory->hwState.colorBitmask = 0xff;
+        _memory->hwState.printAttributes = 0;
+
         // Pause audio
         _audio->setPaused(true);
     }
     else{
         //restore old draw state
         memcpy(&_memory->drawState, _drawStateCopy, 64);
+        _memory->hwState = _hwStateCopy;
         // Clear input on next update so the button press that closed the menu
         // doesn't get passed to the cart
         _clearInputOnResume = true;

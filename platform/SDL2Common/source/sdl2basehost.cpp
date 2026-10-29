@@ -209,7 +209,7 @@ static int s_lastLayoutW = 0;
 static int s_lastLayoutH = 0;
 static int s_lastLayoutScale = -1;
 
-static void updateAndroidLayout() {
+void updateAndroidLayout() {
     int outW = _windowWidth, outH = _windowHeight;
     if (renderer && SDL_GetRendererOutputSize(renderer, &outW, &outH) == 0 && outW > 0 && outH > 0) {
         _windowWidth = outW;

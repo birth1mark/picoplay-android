@@ -65,13 +65,15 @@ public class PicoPlayActivity extends SDLActivity {
             for (String filename : assetFiles) {
                 if (!filename.endsWith(".p8") && !filename.endsWith(".png")) continue;
                 File outFile = new File(cartsDir, filename);
-                if (!outFile.exists() || outFile.length() == 0) {
-                    try (InputStream in = getAssets().open("carts/" + filename);
-                         FileOutputStream out = new FileOutputStream(outFile)) {
-                        byte[] buf = new byte[8192];
-                        int len;
-                        while ((len = in.read(buf)) > 0) {
-                            out.write(buf, 0, len);
+                try (InputStream in = getAssets().open("carts/" + filename)) {
+                    int assetLen = in.available();
+                    if (!outFile.exists() || outFile.length() == 0 || (assetLen > 0 && outFile.length() != assetLen)) {
+                        try (FileOutputStream out = new FileOutputStream(outFile)) {
+                            byte[] buf = new byte[8192];
+                            int len;
+                            while ((len = in.read(buf)) > 0) {
+                                out.write(buf, 0, len);
+                            }
                         }
                     }
                 }

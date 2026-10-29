@@ -224,15 +224,31 @@ __f08_menu_items = {
 __f08_menu_selected = 0
 __f08_mouse_was_down = false
 
+function __z8_reset_menu()
+    __f08_menu_items = {
+        [0] = {"continue", __togglepausemenu},
+        {nil, nil},
+        {nil, nil},
+        {nil, nil},
+        {nil, nil},
+        {nil, nil},
+        {"reset cart", __resetcart},
+        {"exit to menu", __loaddefaultcart},
+        {"exit to settings", __loadsettingscart}
+    }
+    __f08_menu_selected = 0
+    __f08_mouse_was_down = false
+end
+
 function __f08_menu_update()
     if btnp(2) and __f08_menu_selected > 0 then
         repeat
             __f08_menu_selected = __f08_menu_selected - 1
-        until __f08_menu_items[__f08_menu_selected][1] ~= nil
+        until __f08_menu_selected <= 0 or (__f08_menu_items[__f08_menu_selected] and __f08_menu_items[__f08_menu_selected][1] ~= nil)
     elseif btnp(3) and __f08_menu_selected < #__f08_menu_items then
         repeat
             __f08_menu_selected = __f08_menu_selected + 1
-        until __f08_menu_items[__f08_menu_selected][1] ~= nil
+        until __f08_menu_selected >= #__f08_menu_items or (__f08_menu_items[__f08_menu_selected] and __f08_menu_items[__f08_menu_selected][1] ~= nil)
     end
 
     local is_action = btnp(4) or btnp(5)
@@ -303,6 +319,12 @@ function __f08_menu_update()
 end
 
 function __f08_menu_draw()
+    camera(0, 0)
+    clip()
+    pal()
+    fillp(0)
+    color(7)
+
     local menuwidth = 82
     local itemcount = 0
     for i=0, 8, 1 do
@@ -600,6 +622,7 @@ function __z8_run_cart(cart_code)
 
         __z8_reset_state()
         __z8_reset_cartdata()
+        __z8_reset_menu()
 
         -- Load cart and run the user-provided functions. Note that if the
         -- cart code returns before the end, our added code will not be
@@ -638,6 +661,10 @@ function __z8_tick()
 
     -- Check if pause menu is active
     if __ispaused() then
+        camera(0, 0)
+        clip()
+        pal()
+        fillp(0)
         _update_buttons()
         __f08_menu_update()
         __f08_menu_draw()

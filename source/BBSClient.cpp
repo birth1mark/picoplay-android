@@ -301,7 +301,7 @@ vector<BBSCartItem> BBSClient::GetFeaturedCarts(const string& cartsDirectory) {
     static const PredefinedCart list[] = {
         {"11925", "Celeste Classic", "Maddy & Noel", "Platformer", "bbs_celeste.p8.png"},
         {"celeste_classic_2-5", "Celeste 2", "Noel & Maddy", "Platformer", "bbs_celeste2.p8.png"},
-        {"57404", "Slipways", "krajzeg", "Strategy", "bbs_slipways.p8.png"},
+        {"slipways-1", "Slipways", "krajzeg", "Strategy", "bbs_slipways.p8.png"},
         {"53161", "Mistigri", "B. Soule", "Metroidvania", "bbs_mistigri.p8.png"},
         {"54521", "Mai-Chan Buns", "Krystman", "Puzzle", "bbs_maichan.p8.png"},
         {"beckon_the_hellspawn-2", "Hellspawn", "MarcG", "Survivors", "bbs_hellspawn.p8.png"},

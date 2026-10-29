@@ -576,6 +576,31 @@ string checkCart_wrapper(string cartDirectory, string cart)
 */
 
 
+TEST_CASE("Pause Menu Normalizes Camera and Palette") {
+    Host* host = new Host();
+    Vm* vm = new Vm(host);
+    string cartCode = "pico-8 cartridge // http://www.pico-8.com\nversion 8\n__lua__\nfunction _draw()\n  camera(-50, -100)\n  pal(7, 0)\n  fillp(0xaaaa)\nend\n";
+    vm->LoadCart(reinterpret_cast<const unsigned char*>(cartCode.c_str()), cartCode.size(), false);
+    vm->vm_run();
+
+    for (int i = 0; i < 30; i++) {
+        vm->Step();
+    }
+
+    // Trigger pause menu
+    vm->togglePauseMenu();
+    CHECK(vm->IsPaused() == true);
+
+    // Step while paused
+    for (int i = 0; i < 5; i++) {
+        CHECK(vm->Step() == true);
+    }
+    CHECK(vm->GetBiosError() == "");
+
+    delete vm;
+    delete host;
+}
+
 TEST_CASE("Loading and running carts") {
     vector<string> carts;
     vector<string> errors;
