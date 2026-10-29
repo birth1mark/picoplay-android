@@ -31,11 +31,14 @@ extern int g_scaleMode;
 
 extern int g_stickBaseX;
 extern int g_stickBaseY;
+extern int g_stickDefaultBaseX;
+extern int g_stickDefaultBaseY;
 extern int g_stickNubX;
 extern int g_stickNubY;
 extern int g_stickRadius;
 extern int g_stickNubRadius;
 extern bool g_stickActive;
+static bool s_stickTracked = false;
 
 extern int g_btnOCenterX, g_btnOCenterY, g_btnORadius;
 extern int g_btnXCenterX, g_btnXCenterY, g_btnXRadius;
@@ -291,32 +294,49 @@ InputState_t Host::scanInput() {
                     scaleTapped = true;
                 }
 
-                // Transparent Thumb Virtual Joystick (Left Control Zone)
+                // Transparent Floating Virtual Joystick (Left Control Zone)
                 bool inLeftZone = portrait ? (tx < _windowWidth * 55 / 100 && ty > DestR.y + DestR.h)
                                            : (tx < DestR.x && ty > 60);
                 if (inLeftZone) {
+                    if (!s_stickTracked) {
+                        s_stickTracked = true;
+                        // Dynamically anchor joystick base around the initial touch point
+                        int minX = g_stickRadius + 10;
+                        int maxX = portrait ? (_windowWidth * 50 / 100) : (DestR.x - g_stickRadius - 10);
+                        int minY = portrait ? (DestR.y + DestR.h + g_stickRadius + 10) : (60 + g_stickRadius);
+                        int maxY = _windowHeight - g_stickRadius - 10;
+                        g_stickBaseX = std::max(minX, std::min(tx, maxX));
+                        g_stickBaseY = std::max(minY, std::min(ty, maxY));
+                        g_stickNubX = g_stickBaseX;
+                        g_stickNubY = g_stickBaseY;
+                    }
+
                     float dx = (float)(tx - g_stickBaseX);
                     float dy = (float)(ty - g_stickBaseY);
                     float dist = sqrtf(dx * dx + dy * dy);
-                    if (dist <= g_stickRadius * 2.5f) {
-                        stickTouchFound = true;
-                        g_stickActive = true;
-                        float maxNubDist = (float)g_stickRadius;
-                        if (dist > maxNubDist) {
-                            g_stickNubX = g_stickBaseX + (int)(dx / dist * maxNubDist);
-                            g_stickNubY = g_stickBaseY + (int)(dy / dist * maxNubDist);
-                        } else {
-                            g_stickNubX = tx;
-                            g_stickNubY = ty;
-                        }
+                    stickTouchFound = true;
+                    g_stickActive = true;
+                    float maxNubDist = (float)g_stickRadius;
+                    if (dist > maxNubDist) {
+                        g_stickNubX = g_stickBaseX + (int)(dx / dist * maxNubDist);
+                        g_stickNubY = g_stickBaseY + (int)(dy / dist * maxNubDist);
+                    } else {
+                        g_stickNubX = tx;
+                        g_stickNubY = ty;
+                    }
 
-                        float deadzone = g_stickRadius * 0.22f;
-                        if (dist > deadzone) {
-                            float thresh = deadzone * 0.70f;
-                            if (dx < -thresh) touchMask |= P8_KEY_LEFT;
-                            if (dx >  thresh) touchMask |= P8_KEY_RIGHT;
-                            if (dy < -thresh) touchMask |= P8_KEY_UP;
-                            if (dy >  thresh) touchMask |= P8_KEY_DOWN;
+                    float deadzone = g_stickRadius * 0.25f;
+                    if (dist > deadzone) {
+                        float absDx = fabsf(dx);
+                        float absDy = fabsf(dy);
+                        // Cardinal vs diagonal gating: ~22.5 degrees from axis
+                        if (absDx >= dist * 0.38f) {
+                            if (dx < 0) touchMask |= P8_KEY_LEFT;
+                            else        touchMask |= P8_KEY_RIGHT;
+                        }
+                        if (absDy >= dist * 0.38f) {
+                            if (dy < 0) touchMask |= P8_KEY_UP;
+                            else        touchMask |= P8_KEY_DOWN;
                         }
                     }
                 }
@@ -343,9 +363,12 @@ InputState_t Host::scanInput() {
         }
 
         if (!stickTouchFound) {
+            s_stickTracked = false;
             g_stickActive = false;
-            g_stickNubX = g_stickBaseX;
-            g_stickNubY = g_stickBaseY;
+            g_stickBaseX = g_stickDefaultBaseX;
+            g_stickBaseY = g_stickDefaultBaseY;
+            g_stickNubX = g_stickDefaultBaseX;
+            g_stickNubY = g_stickDefaultBaseY;
         }
     } else {
         g_stickActive = false;

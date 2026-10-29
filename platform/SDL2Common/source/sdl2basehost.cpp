@@ -81,6 +81,8 @@ int g_scaleMode = 0; // 0 = Fit Handheld, 1 = Pixel Perfect, 2 = Fill Width
 // Virtual Transparent Thumb Joystick coordinates
 int g_stickBaseX = 0;
 int g_stickBaseY = 0;
+int g_stickDefaultBaseX = 0;
+int g_stickDefaultBaseY = 0;
 int g_stickNubX = 0;
 int g_stickNubY = 0;
 int g_stickRadius = 80;

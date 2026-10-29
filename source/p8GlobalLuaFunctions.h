@@ -222,6 +222,7 @@ __f08_menu_items = {
 }
 
 __f08_menu_selected = 0
+__f08_mouse_was_down = false
 
 function __f08_menu_update()
     if btnp(3) and __f08_menu_selected < #__f08_menu_items then
@@ -236,11 +237,50 @@ function __f08_menu_update()
         until __f08_menu_items[__f08_menu_selected][1] ~= nil
     end
 
-    if btnp(0) or btnp(1) or btnp(4) or btnp(5) then
+    local is_action = btnp(4) or btnp(5)
+    local is_horizontal = btnp(0) or btnp(1)
+    local is_custom = (__f08_menu_selected >= 1 and __f08_menu_selected <= 5)
+
+    -- Direct touch support: tapping on menu items inside PICO-8 screen
+    local mx = stat(32)
+    local my = stat(33)
+    local mbtn = stat(34)
+    if (mbtn & 1) ~= 0 and not __f08_mouse_was_down then
+        local menuwidth = 82
+        local menux = (128 - menuwidth) / 2
+        local itemcount = 0
+        for i=0, 8, 1 do
+            if __f08_menu_items[i] and __f08_menu_items[i][1] then
+                itemcount = itemcount + 1
+            end
+        end
+        local menuheight = 8 + itemcount * 10
+        local menuy = (128 - menuheight) / 2
+
+        if mx >= menux and mx <= menux + menuwidth and my >= menuy and my <= menuy + menuheight then
+            local slot = 0
+            for i=0, 8, 1 do
+                if __f08_menu_items[i] and __f08_menu_items[i][1] then
+                    local iy = menuy + 4 + slot * 10
+                    if my >= iy and my < iy + 10 then
+                        __f08_menu_selected = i
+                        is_action = true
+                        break
+                    end
+                    slot = slot + 1
+                end
+            end
+        end
+    end
+    __f08_mouse_was_down = ((mbtn & 1) ~= 0)
+
+    -- Standard items (continue, reset, exit) ONLY activate on action buttons (O/X) or direct tap.
+    -- Custom cart items (1-5) can also respond to horizontal arrows (Left/Right).
+    if is_action or (is_horizontal and is_custom) then
 		local bval = 0
 		local allowreturn = false
 		
-		if btnp(4) or btnp(5) then
+		if is_action then
 			bval = 16+32+64
 			allowreturn = true
 		else
@@ -249,7 +289,6 @@ function __f08_menu_update()
 			elseif btnp(1) then 
 				bval = 2			
 			end
-			
 		end
 		
         toexec = __f08_menu_items[__f08_menu_selected]
@@ -282,24 +321,23 @@ function __f08_menu_draw()
     rect(menux+1, menuy+1, menux + menuwidth-1, menuy + menuheight-1, 7)
     local itemx = menux + 8
     local itemy = menuy + 6
-    local itemidx = 0
 
     for i=0, 8, 1 do
         item = __f08_menu_items[i]
         if item and item[1] then
-            print(item[1], itemx, itemy, 7)
+            local is_sel = (i == __f08_menu_selected)
+            local textcol = is_sel and 10 or 7
+            print(item[1], itemx, itemy, textcol)
             
             --draw selection indicator
-            if itemidx == __f08_menu_selected then
-                line(itemx-5, itemy, itemx-5, itemy+4, 7)
-                line(itemx-4, itemy+1, itemx-4, itemy+3, 7)
-                pset(itemx-3, itemy+2, 7)
+            if is_sel then
+                line(itemx-5, itemy, itemx-5, itemy+4, 10)
+                line(itemx-4, itemy+1, itemx-4, itemy+3, 10)
+                pset(itemx-3, itemy+2, 10)
             end
 
             itemy = itemy + 10
         end
-
-        itemidx = itemidx + 1
     end
 end
 

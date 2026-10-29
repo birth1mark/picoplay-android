@@ -1243,7 +1243,7 @@ void Vm::update_buttons() {
     }
     
     _input->SetState(inputState.KDown, inputState.KHeld);
-    if (_memory->drawState.devkitMode) {
+    if (_memory->drawState.devkitMode || _pauseMenu) {
         _input->SetMouse(inputState.mouseX, inputState.mouseY, inputState.mouseBtnState);
         _input->SetKeyboard(inputState.KBdown,inputState.KBkey);
     }
