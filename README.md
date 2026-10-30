@@ -4,11 +4,11 @@
 
 [![Website](https://img.shields.io/badge/Website-PicoPlay%20Online-29ADFF?style=for-the-badge&logo=googlechrome&logoColor=white)](https://birth1mark.github.io/picoplay-android/)
 [![itch.io](https://img.shields.io/badge/itch.io-Available%20Now-FA5C5C?style=for-the-badge&logo=itchdotio&logoColor=white)](https://birth1mark.itch.io/picoplay)
-[![Latest Release](https://img.shields.io/badge/Release-v1.0.1%20Live-00E436?style=for-the-badge&logo=github)](https://github.com/birth1mark/picoplay-android/releases/tag/v1.0.1)
-[![Platform](https://img.shields.io/badge/Platform-Android%207.0%2B%20(API%2024--35)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/birth1mark/picoplay-android)
+[![Latest Release](https://img.shields.io/badge/Release-v1.0.1%20Live-00E436?style=for-the-badge&logo=github)](https://github.com/birth1mark/picoplay-android/releases/latest)
+[![Platform](https://img.shields.io/badge/Platform-Android%207.0%2B%20%28API%2024--35%29-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/birth1mark/picoplay-android)
 [![Memory Page Size](https://img.shields.io/badge/Memory%20Page%20Size-16KB%20Aligned-brightgreen?style=for-the-badge)](https://developer.android.com/guide/practices/page-sizes)
 [![ABI](https://img.shields.io/badge/ABI-arm64--v8a%20%7C%20x86__64-00979D?style=for-the-badge)](https://github.com/birth1mark/picoplay-android)
-[![License](https://img.shields.io/badge/License-MIT%20%2B%20Zlib-yellow?style=for-the-badge)](https://github.com/birth1mark/picoplay-android/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/License-MIT%20%2B%20Zlib-yellow?style=for-the-badge)](https://github.com/birth1mark/picoplay-android/blob/main/LICENSE.MD)
 
 <br/>
 
@@ -16,7 +16,7 @@
 
 Featuring an ergonomic **Pocket Touch Gamepad**, automatic Bluetooth/USB controller detection, an in-app **BBS Store** cartridge browser, mouse-driven touch emulation (for games like *Slipways*), and full **Android 15 (16KB page size)** alignment.
 
-[**🌐 Live Website & Showcase**](https://birth1mark.github.io/picoplay-android/) • [**👾 Get on itch.io**](https://birth1mark.itch.io/picoplay) • [**⬇️ Download APK (v1.0.1)**](https://github.com/birth1mark/picoplay-android/releases/tag/v1.0.1) • [**🎮 PS4 Edition**](https://github.com/birth1mark/picoplay-ps4)
+[**🌐 Live Website & Showcase**](https://birth1mark.github.io/picoplay-android/) • [**👾 Get on itch.io**](https://birth1mark.itch.io/picoplay) • [**⬇️ Download APK (v1.0.1)**](https://github.com/birth1mark/picoplay-android/releases/latest/download/picoplay-full-v1.0.1.apk) • [**🎮 PS4 Edition**](https://github.com/birth1mark/picoplay-ps4)
 
 </div>
 
@@ -63,8 +63,10 @@ Featuring an ergonomic **Pocket Touch Gamepad**, automatic Bluetooth/USB control
 | Edition | Package Name | Target Audience | Direct Download |
 | :--- | :--- | :--- | :--- |
 | **itch.io Edition** | `com.birth1mark.picoplay.full` | Community Gamers, Retro Handhelds | [**👾 Get on itch.io**](https://birth1mark.itch.io/picoplay) |
-| **PicoPlay Full** *(Direct)* | `com.birth1mark.picoplay.full` | Smartphones, Tablets, Retroid Pocket, Odin, Handhelds | [**⬇️ Download Full APK v1.0.1**](https://github.com/birth1mark/picoplay-android/releases/download/v1.0.1/picoplay-full-v1.0.1.apk) |
-| **PicoPlay Play Store** | `com.birth1mark.picoplay` | Google Play Store distribution (`.aab` / `.apk`) | [**⬇️ Download PlayStore APK**](https://github.com/birth1mark/picoplay-android/releases/download/v1.0.1/picoplay-playstore-v1.0.1.apk) • [**📦 Bundle (.aab)**](https://github.com/birth1mark/picoplay-android/releases/download/v1.0.1/picoplay-playstore-v1.0.1.aab) |
+| **PicoPlay Full** *(Direct)* | `com.birth1mark.picoplay.full` | Smartphones, Tablets, Retroid Pocket, Odin, Handhelds | [**⬇️ Download Full APK (v1.0.1)**](https://github.com/birth1mark/picoplay-android/releases/latest/download/picoplay-full-v1.0.1.apk) |
+| **PicoPlay Play Store** | `com.birth1mark.picoplay` | Google Play Store distribution (`.aab` / `.apk`) | [**⬇️ Download PlayStore APK**](https://github.com/birth1mark/picoplay-android/releases/latest/download/picoplay-playstore-v1.0.1.apk) • [**📦 Bundle (.aab)**](https://github.com/birth1mark/picoplay-android/releases/latest/download/picoplay-playstore-v1.0.1.aab) |
+
+> 💡 *Looking for older versions or complete changelogs? Browse all [GitHub Releases](https://github.com/birth1mark/picoplay-android/releases).*
 
 ### Installation Instructions
 1. Download `picoplay-full-v1.0.1.apk` on your Android device.
@@ -125,7 +127,7 @@ Featuring an ergonomic **Pocket Touch Gamepad**, automatic Bluetooth/USB control
 git clone https://github.com/birth1mark/picoplay-android.git
 cd picoplay-android
 
-# Build all release artifacts
+# Build all release artifacts (APKs and Play Store Bundle)
 cd android
 ./gradlew assembleFullRelease assemblePlaystoreRelease bundlePlaystoreRelease
 ```
@@ -133,8 +135,15 @@ cd android
 ### Run C++ Doctest Unit Tests
 ```bash
 cd test
+make -j$(nproc)
 ./testrunner.a
 # All 48 test suites and 1,034 assertions will run and report status
+```
+
+### Desktop Chassis Preview Harness
+```bash
+# Run local interactive SDL2 desktop window (supports mouse & gamepad testing)
+tools/preview/preview_chassis --interactive
 ```
 
 ---

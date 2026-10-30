@@ -26,5 +26,6 @@ android/app/jni/SDL2/
 platform/SDL2Desktop/build/
 test/build/
 test/preview_chassis
+tools/preview/preview_chassis
 test/*.a
 bass.wav

@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <errno.h>
+#include <filesystem>
 
 #include "doctest.h"
 #include <iostream>
@@ -582,7 +583,14 @@ TEST_CASE("Slipways execution and touch mouse click") {
     StubHost* host = new StubHost();
     Vm* vm = new Vm(host);
     
-    std::string path = "/home/pedro/Projects/picoplay-android/android/app/src/main/assets/carts/slipways.p8.png";
+    std::string rel_path = "../starter_carts/slipways.p8.png";
+    FILE* fp = fopen(rel_path.c_str(), "rb");
+    if (!fp) {
+        rel_path = "../android/app/src/full/assets/carts/slipways.p8.png";
+    } else {
+        fclose(fp);
+    }
+    std::string path = std::filesystem::absolute(rel_path).string();
     Cart* cart = new Cart(path, "");
     std::cout << "extcmd pos: " << (int)cart->LuaString.find("extcmd") << std::endl;
     delete cart;
