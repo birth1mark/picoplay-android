@@ -7,7 +7,8 @@ This document contains all ready-to-paste fields, assets, and compliance questio
 ## 1. App Details (English — `en-US`)
 
 - **App Name (max 30 chars):**
-  `PicoPlay — 8-Bit Fantasy Arcade` *(30 characters)*
+  `PicoPlay - 8-Bit Retro Arcade` *(29 characters)*
+  *(Alternative: `PicoPlay 8-Bit Fantasy Arcade` - 29 characters)*
 - **Short Description (max 80 chars):**
   `Play 128x128 8-bit fantasy console cartridges with touch & gamepad support.` *(76 characters)*
 - **Full Description (max 4000 chars):**
