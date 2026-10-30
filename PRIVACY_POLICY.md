@@ -11,8 +11,8 @@
 When you import a `.p8` or `.p8.png` cartridge using the Android system file picker (Storage Access Framework), the selected file is copied solely into the application's private internal storage directory (`getFilesDir()/carts`) on your device so it can be executed offline. No files ever leave your device.
 
 ## 3. Permissions Used
-- **`android.permission.VIBRATE`**: Used exclusively for optional tactile feedback when pressing on-screen gamepad buttons.
-- **`android.permission.INTERNET`**: Used only when the user explicitly initiates an optional cartridge download in the Full edition. The Google Play Store edition operates completely offline with local cartridge import.
+- **`android.permission.VIBRATE`**: Used exclusively for optional tactile haptic feedback when pressing on-screen gamepad buttons.
+- The Google Play edition operates 100% offline, requests zero network permissions, and connects to no external servers.
 
 ## 4. Third-Party Services & Advertising
 **PicoPlay** contains:
