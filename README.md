@@ -4,8 +4,8 @@
 
 [![Website](https://img.shields.io/badge/Website-PicoPlay%20Online-29ADFF?style=for-the-badge&logo=googlechrome&logoColor=white)](https://birth1mark.github.io/picoplay-android/)
 [![itch.io](https://img.shields.io/badge/itch.io-Available%20Now-FA5C5C?style=for-the-badge&logo=itchdotio&logoColor=white)](https://birth1mark.itch.io/picoplay)
-[![Latest Release](https://img.shields.io/badge/Release-v1.0.1%20Live-00E436?style=for-the-badge&logo=github)](https://github.com/birth1mark/picoplay-android/releases/latest)
-[![Platform](https://img.shields.io/badge/Platform-Android%207.0%2B%20%28API%2024--35%29-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/birth1mark/picoplay-android)
+[![Latest Release](https://img.shields.io/badge/Release-v1.0.2%20Live-00E436?style=for-the-badge&logo=github)](https://github.com/birth1mark/picoplay-android/releases/latest)
+[![Platform](https://img.shields.io/badge/Platform-Android%207.0%2B%20%28API%2024--36%29-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/birth1mark/picoplay-android)
 [![Memory Page Size](https://img.shields.io/badge/Memory%20Page%20Size-16KB%20Aligned-brightgreen?style=for-the-badge)](https://developer.android.com/guide/practices/page-sizes)
 [![ABI](https://img.shields.io/badge/ABI-arm64--v8a%20%7C%20x86__64-00979D?style=for-the-badge)](https://github.com/birth1mark/picoplay-android)
 [![License](https://img.shields.io/badge/License-MIT%20%2B%20Zlib-yellow?style=for-the-badge)](https://github.com/birth1mark/picoplay-android/blob/main/LICENSE.MD)
@@ -14,9 +14,9 @@
 
 **PicoPlay Android** is a high-performance, native C++ player and arcade frontend for 128×128 8-bit fantasy console cartridges (PICO-8 ecosystem). Engineered specifically for modern Android smartphones, tablets, Android TV, and dedicated gaming handhelds (Retroid Pocket, AYN Odin, Anbernic).
 
-Featuring an ergonomic **Pocket Touch Gamepad**, automatic Bluetooth/USB controller detection, an in-app **BBS Store** cartridge browser, mouse-driven touch emulation (for games like *Slipways*), and full **Android 15 (16KB page size)** alignment.
+Featuring an ergonomic **Pocket Touch Gamepad**, automatic Bluetooth/USB controller detection, an in-app **BBS Store** cartridge browser, mouse-driven touch emulation (for games like *Slipways*), and full **Android 16 (16KB page size)** alignment.
 
-[**🌐 Live Website & Showcase**](https://birth1mark.github.io/picoplay-android/) • [**👾 Get on itch.io**](https://birth1mark.itch.io/picoplay) • [**⬇️ Download APK (v1.0.1)**](https://github.com/birth1mark/picoplay-android/releases/latest/download/picoplay-full-v1.0.1.apk) • [**🎮 PS4 Edition**](https://github.com/birth1mark/picoplay-ps4)
+[**🌐 Live Website & Showcase**](https://birth1mark.github.io/picoplay-android/) • [**👾 Get on itch.io**](https://birth1mark.itch.io/picoplay) • [**⬇️ Download APK (v1.0.2)**](https://github.com/birth1mark/picoplay-android/releases/latest/download/picoplay-full-v1.0.2.apk) • [**🎮 PS4 Edition**](https://github.com/birth1mark/picoplay-ps4)
 
 </div>
 
@@ -53,8 +53,8 @@ Featuring an ergonomic **Pocket Touch Gamepad**, automatic Bluetooth/USB control
   - Native Android Storage Access Framework (SAF) integration: tap `[+CART]` to load any `.p8` (text cartridge) or `.p8.png` (cartridge image) directly from Downloads, Google Drive, or SD card.
 - **🚀 Ultra-Optimized Native C++ Core**:
   - Powered by Fake-08 with SDL2 hardware-accelerated rendering and low-latency OpenSL ES audio. Runs at a locked 60 FPS with zero lag or battery drain.
-- **🛡️ Android 15 & 16KB Page Aligned**:
-  - Fully compliant with Google Play's strict 16KB memory page size alignment requirements and Target SDK 35 (Android 15).
+- **🛡️ Android 16 & 16KB Page Aligned**:
+  - Fully compliant with Google Play's strict 16KB memory page size alignment requirements and Target SDK 36 (Android 16).
 
 ---
 
@@ -63,13 +63,13 @@ Featuring an ergonomic **Pocket Touch Gamepad**, automatic Bluetooth/USB control
 | Edition | Package Name | Target Audience | Direct Download |
 | :--- | :--- | :--- | :--- |
 | **itch.io Edition** | `com.birth1mark.picoplay.full` | Community Gamers, Retro Handhelds | [**👾 Get on itch.io**](https://birth1mark.itch.io/picoplay) |
-| **PicoPlay Full** *(Direct)* | `com.birth1mark.picoplay.full` | Smartphones, Tablets, Retroid Pocket, Odin, Handhelds | [**⬇️ Download Full APK (v1.0.1)**](https://github.com/birth1mark/picoplay-android/releases/latest/download/picoplay-full-v1.0.1.apk) |
-| **PicoPlay Play Store** | `com.birth1mark.picoplay` | Google Play Store distribution (`.aab` / `.apk`) | [**⬇️ Download PlayStore APK**](https://github.com/birth1mark/picoplay-android/releases/latest/download/picoplay-playstore-v1.0.1.apk) • [**📦 Bundle (.aab)**](https://github.com/birth1mark/picoplay-android/releases/latest/download/picoplay-playstore-v1.0.1.aab) |
+| **PicoPlay Full** *(Direct)* | `com.birth1mark.picoplay.full` | Smartphones, Tablets, Retroid Pocket, Odin, Handhelds | [**⬇️ Download Full APK (v1.0.2)**](https://github.com/birth1mark/picoplay-android/releases/latest/download/picoplay-full-v1.0.2.apk) |
+| **PicoPlay Play Store** | `com.birth1mark.picoplay` | Google Play Store distribution (`.aab` / `.apk`) | [**⬇️ Download PlayStore APK**](https://github.com/birth1mark/picoplay-android/releases/latest/download/picoplay-playstore-v1.0.2.apk) • [**📦 Bundle (.aab)**](https://github.com/birth1mark/picoplay-android/releases/latest/download/picoplay-playstore-v1.0.2.aab) |
 
 > 💡 *Looking for older versions or complete changelogs? Browse all [GitHub Releases](https://github.com/birth1mark/picoplay-android/releases).*
 
 ### Installation Instructions
-1. Download `picoplay-full-v1.0.1.apk` on your Android device.
+1. Download `picoplay-full-v1.0.2.apk` on your Android device.
 2. Open the file via your browser or Files manager (allow *"Install unknown apps"* if prompted).
 3. Launch **PicoPlay** and start enjoying your favorite 8-bit cartridges!
 
@@ -85,8 +85,8 @@ Featuring an ergonomic **Pocket Touch Gamepad**, automatic Bluetooth/USB control
 | **Local File Import (`.p8` / `.p8.png`)** | ✅ Full | ✅ Full |
 | **Touch / Mouse Point-and-Click Emulation** | ✅ Full | ✅ Full |
 | **In-App BBS Arcade Store & Downloader** | ✅ Included | ⏳ Clean SAF Importer (Policy Compliant) |
-| **Target SDK 35 & 16KB Page Alignment** | ✅ Verified | ✅ Verified |
-| **Google Play Safe (Zero Copyright Assets)** | Sideload Edition | ⏳ In Preparation for Play Store Review |
+| **Target SDK 36 & 16KB Page Alignment** | ✅ Verified | ✅ Verified |
+| **Google Play Safe (Zero Copyright Assets)** | Sideload Edition | ⏳ In Review on Google Play |
 
 > **Note on Play Store Edition:** The Play Store flavor is specifically architected to adhere strictly to Google Play Developer policies, featuring open-source standalone starter carts and pure Storage Access Framework (SAF) loading. Full details and Google Play publication are scheduled for subsequent milestones.
 
@@ -116,7 +116,7 @@ Featuring an ergonomic **Pocket Touch Gamepad**, automatic Bluetooth/USB control
 ## 🛠️ Building from Source
 
 ### Prerequisites
-- Android SDK with API 35 (Android 15)
+- Android SDK with API 36 (Android 16)
 - Android NDK `27.1.12297006` or newer (supporting 16KB page size alignment)
 - JDK 17
 - CMake 3.22+
