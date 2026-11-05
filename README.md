@@ -2,7 +2,8 @@
 
 <div align="center">
 
-[![Website](https://img.shields.io/badge/Website-PicoPlay%20Online-29ADFF?style=for-the-badge&logo=googlechrome&logoColor=white)](https://birth1mark.github.io/picoplay-android/)
+[![Google Play](https://img.shields.io/badge/Google%20Play-Get%20it%20Now-01875F?style=for-the-badge&logo=googleplay&logoColor=white)](https://play.google.com/store/apps/details?id=com.birth1mark.picoplay)
+[![Website](https://img.shields.io/badge/Website-PicoPlay%20Online-29ADFF?style=for-the-badge&logo=googlechrome&logoColor=white)](https://birth1mark.github.io/picoplay/)
 [![itch.io](https://img.shields.io/badge/itch.io-Available%20Now-FA5C5C?style=for-the-badge&logo=itchdotio&logoColor=white)](https://birth1mark.itch.io/picoplay)
 [![Latest Release](https://img.shields.io/badge/Release-v1.0.2%20Live-00E436?style=for-the-badge&logo=github)](https://github.com/birth1mark/picoplay-android/releases/latest)
 [![Platform](https://img.shields.io/badge/Platform-Android%207.0%2B%20%28API%2024--36%29-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/birth1mark/picoplay-android)
@@ -16,7 +17,7 @@
 
 Featuring an ergonomic **Pocket Touch Gamepad**, automatic Bluetooth/USB controller detection, an in-app **BBS Store** cartridge browser, mouse-driven touch emulation (for games like *Slipways*), and full **Android 16 (16KB page size)** alignment.
 
-[**🌐 Live Website & Showcase**](https://birth1mark.github.io/picoplay-android/) • [**👾 Get on itch.io**](https://birth1mark.itch.io/picoplay) • [**⬇️ Download APK (v1.0.2)**](https://github.com/birth1mark/picoplay-android/releases/latest/download/picoplay-full-v1.0.2.apk) • [**🎮 PS4 Edition**](https://github.com/birth1mark/picoplay-ps4)
+[**📲 Get on Google Play**](https://play.google.com/store/apps/details?id=com.birth1mark.picoplay) • [**🌐 Live Portal**](https://birth1mark.github.io/picoplay/) • [**👾 Get on itch.io**](https://birth1mark.itch.io/picoplay) • [**⬇️ Download APK (v1.0.2)**](https://github.com/birth1mark/picoplay-android/releases/latest/download/picoplay-full-v1.0.2.apk) • [**🎮 PS4 Edition**](https://github.com/birth1mark/picoplay-ps4)
 
 </div>
 
