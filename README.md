@@ -10,7 +10,7 @@
 [![Memory Page Size](https://img.shields.io/badge/Memory%20Page%20Size-16KB%20Aligned-brightgreen?style=for-the-badge)](https://developer.android.com/guide/practices/page-sizes)
 [![ABI](https://img.shields.io/badge/ABI-arm64--v8a%20%7C%20x86__64-00979D?style=for-the-badge)](https://github.com/birth1mark/picoplay-android)
 [![License](https://img.shields.io/badge/License-MIT%20%2B%20Zlib-yellow?style=for-the-badge)](https://github.com/birth1mark/picoplay-android/blob/main/LICENSE.MD)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white)](https://ko-fi.com/birth1mark)
+[![Buy me a coffee](https://img.shields.io/badge/☕_Buy_me_a_coffee-amber?style=for-the-badge)](https://donate.stripe.com/14AfZh8sC6bagMa0dte3e00)
 
 <br/>
 
@@ -18,7 +18,7 @@
 
 Featuring an ergonomic **Pocket Touch Gamepad**, automatic Bluetooth/USB controller detection, an in-app **BBS Store** cartridge browser, mouse-driven touch emulation (for games like *Slipways*), and full **Android 16 (16KB page size)** alignment.
 
-[**📲 Get on Google Play**](https://play.google.com/store/apps/details?id=com.birth1mark.picoplay) • [**🌐 Live Portal**](https://birth1mark.github.io/picoplay/) • [**👾 Get on itch.io**](https://birth1mark.itch.io/picoplay) • [**⬇️ Download APK (v1.0.2)**](https://github.com/birth1mark/picoplay-android/releases/latest/download/picoplay-full-v1.0.2.apk) • [**🎮 PS4 Edition**](https://github.com/birth1mark/picoplay-ps4) • [**☕ Ko-fi**](https://ko-fi.com/birth1mark)
+[**📲 Get on Google Play**](https://play.google.com/store/apps/details?id=com.birth1mark.picoplay) • [**🌐 Live Portal**](https://birth1mark.github.io/picoplay/) • [**👾 Get on itch.io**](https://birth1mark.itch.io/picoplay) • [**⬇️ Download APK (v1.0.2)**](https://github.com/birth1mark/picoplay-android/releases/latest/download/picoplay-full-v1.0.2.apk) • [**🎮 PS4 Edition**](https://github.com/birth1mark/picoplay-ps4) • [**☕ Buy me a coffee**](https://donate.stripe.com/14AfZh8sC6bagMa0dte3e00)
 
 </div>
 
@@ -160,5 +160,5 @@ tools/preview/preview_chassis --interactive
 ---
 
 <div align="center">
-  Crafted with ❤️ for the retro gaming community by <a href="https://github.com/birth1mark">birth1mark</a> • <a href="https://ko-fi.com/birth1mark">☕ Support on Ko-fi</a>
+  Crafted with ❤️ for the retro gaming community by <a href="https://github.com/birth1mark">birth1mark</a> • <a href="https://donate.stripe.com/14AfZh8sC6bagMa0dte3e00">☕ Buy me a coffee</a>
 </div>
